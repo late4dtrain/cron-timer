@@ -10,6 +10,7 @@ void Main()
 						includeSeconds: true);
 	timer.TriggeredEventHander += async (s, e) => await HandleCronTimer();
 	timer.Start();
+	// timer.Stop(); to stop
 }
 
 public Task HandleCronTimer() {

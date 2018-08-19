@@ -24,7 +24,7 @@
             Run();
         }
 
-        public void End()
+        public void Stop()
         {
             _nextRun = (default(TimeSpan), CronResult.Fail);
         }
