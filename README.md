@@ -6,14 +6,17 @@ Usage:
 ```cs
 void Main()
 {
-	var timer = new CronTimer(cronExpression: "*/5 * * * * *", 
-						includeSeconds: true);
-	timer.TriggeredEventHander += async (s, e) => await HandleCronTimer();
+	var timer = new CronTimer("*/1 * * * * *", true);
+	timer.TriggeredEventHander += async (s, e) => await HandleCronTimer(e);
 	timer.Start();
-	// timer.Stop(); to stop
+	Thread.Sleep(TimeSpan.FromSeconds(7));
+	timer.Stop();
 }
 
-public Task HandleCronTimer() {
-	return Task.Run(() => { Console.WriteLine("It is {0} and all is well", DateTime.UtcNow); });
+public Task HandleCronTimer(CronEventArgs e)
+{
+	if (e.CancellationToken.IsCancellationRequested) 
+		return Task.CompletedTask;
+	return Task.Run(() => { Console.WriteLine("Task has completed at {0}.", DateTime.UtcNow); });
 }
 ```
