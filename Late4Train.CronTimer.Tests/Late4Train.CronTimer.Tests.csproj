@@ -13,7 +13,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\GSoulavy.CronTimer\GSoulavy.CronTimer.csproj" />
+    <ProjectReference Include="..\Late4Train.CronTimer\Late4Train.CronTimer.csproj" />
   </ItemGroup>
 
 </Project>

@@ -1,8 +1,9 @@
-namespace GSoulavy.CronTimer.Tests
+namespace Late4Train.CronTimer.Tests
 {
+    using Late4Train.CronTimer;
     using Xunit;
 
-    public class UnitTest1
+    public class CronTimerTests
     {
         [Fact]
         public void Initialise()
