@@ -1,4 +1,4 @@
-﻿namespace GSoulavy.CronTimer
+﻿namespace Late4Train.CronTimer
 {
     using System;
     using System.Threading;
@@ -31,13 +31,12 @@
         public void Stop()
         {
             _cancellationTokenSource.Cancel();
-            _nextRun = (default(TimeSpan), CronResult.Fail);
+            _nextRun = (default, CronResult.Fail);
         }
 
         private async Task RunAsync(CancellationToken cancellationToken)
         {
             while (HasNext)
-            {
                 try
                 {
                     await Task.Delay(_nextRun.elapse, cancellationToken);
@@ -49,7 +48,6 @@
                 {
                     break;
                 }
-            }
         }
 
         private (TimeSpan elapse, CronResult result) GetNextTimeElapse()
@@ -58,7 +56,7 @@
             _nextUtc = _expression.GetNextOccurrence(now);
             return _nextUtc != null
                 ? (_nextUtc.GetValueOrDefault() - now + TimeSpan.FromMilliseconds(10), CronResult.Success)
-                : (default(TimeSpan), CronResult.Fail);
+                : (default, CronResult.Fail);
         }
     }
 }
