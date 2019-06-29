@@ -5,7 +5,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Cronos" Version="0.6.3" />
+    <ProjectReference Include="..\Modules\Cronos\src\Cronos\Cronos.csproj" />
   </ItemGroup>
 
 </Project>

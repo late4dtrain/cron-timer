@@ -3,12 +3,18 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 15
 VisualStudioVersion = 15.0.28010.0
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GSoulavy.CronTimer", "GSoulavy.CronTimer\GSoulavy.CronTimer.csproj", "{E254A5B9-EFF1-48DF-A51C-C31DAE0A66FB}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "GSoulavy.CronTimer", "GSoulavy.CronTimer\GSoulavy.CronTimer.csproj", "{E254A5B9-EFF1-48DF-A51C-C31DAE0A66FB}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{B5197E7E-1F7B-404F-A3DB-EC4292DA56DE}"
 	ProjectSection(SolutionItems) = preProject
 		README.md = README.md
 	EndProjectSection
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Cronos", "Modules\Cronos\src\Cronos\Cronos.csproj", "{B35B60BB-4955-47DA-BC07-D29B39DE4D76}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Cronos.Tests", "Modules\Cronos\tests\Cronos.Tests\Cronos.Tests.csproj", "{E34F860D-E8E9-4D66-BADE-1676EEC810FD}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GSoulavy.CronTimer.Tests", "GSoulavy.CronTimer.Tests\GSoulavy.CronTimer.Tests.csproj", "{28C15E5D-C057-47FE-8897-874F64AA6779}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -20,6 +26,18 @@ Global
 		{E254A5B9-EFF1-48DF-A51C-C31DAE0A66FB}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{E254A5B9-EFF1-48DF-A51C-C31DAE0A66FB}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{E254A5B9-EFF1-48DF-A51C-C31DAE0A66FB}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B35B60BB-4955-47DA-BC07-D29B39DE4D76}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B35B60BB-4955-47DA-BC07-D29B39DE4D76}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B35B60BB-4955-47DA-BC07-D29B39DE4D76}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B35B60BB-4955-47DA-BC07-D29B39DE4D76}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E34F860D-E8E9-4D66-BADE-1676EEC810FD}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E34F860D-E8E9-4D66-BADE-1676EEC810FD}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E34F860D-E8E9-4D66-BADE-1676EEC810FD}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E34F860D-E8E9-4D66-BADE-1676EEC810FD}.Release|Any CPU.Build.0 = Release|Any CPU
+		{28C15E5D-C057-47FE-8897-874F64AA6779}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{28C15E5D-C057-47FE-8897-874F64AA6779}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{28C15E5D-C057-47FE-8897-874F64AA6779}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{28C15E5D-C057-47FE-8897-874F64AA6779}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
