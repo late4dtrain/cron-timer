@@ -1,4 +1,4 @@
-﻿namespace GSoulavy.CronTimer
+﻿namespace Late4Train.CronTimer
 {
     internal enum CronResult
     {
