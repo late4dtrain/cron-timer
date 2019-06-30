@@ -1,22 +1,29 @@
 ﻿namespace Late4Train.CronTimer
 {
     using System;
+    using System.Linq;
     using System.Threading;
     using System.Threading.Tasks;
     using Cronos;
 
     public class CronTimer : ICronTimer
     {
-        private readonly CronExpression _expression;
+        private readonly CronOption _cronOption = new CronOption();
+        private readonly CronExpressionAdapter[] _expressions;
         private CancellationTokenSource _cancellationTokenSource;
+        private NextOccasion _nextOccasion;
         private (TimeSpan elapse, CronResult result) _nextRun;
-        private DateTime? _nextUtc;
-        public EventHandler<CronEventArgs> TriggeredEventHander;
+        public EventHandler<CronEventArgs> TriggeredEventHandler;
 
-        public CronTimer(string cronExpression, bool includeSeconds = false)
+        public CronTimer(Action<CronOption> action)
         {
-            _expression = CronExpression.Parse(cronExpression,
-                includeSeconds ? CronFormat.IncludeSeconds : CronFormat.Standard);
+            action(_cronOption);
+            _expressions = _cronOption.Expressions.Select(e => new CronExpressionAdapter
+            {
+                CronId = e.Id,
+                Expression = CronExpression.Parse(e.Expression, e.Format),
+                CronExpression = e.Expression
+            }).ToArray();
         }
 
         private bool HasNext => _nextRun.result == CronResult.Success;
@@ -36,11 +43,12 @@
 
         private async Task RunAsync(CancellationToken cancellationToken)
         {
-            while (HasNext)
+            while (HasNext && !cancellationToken.IsCancellationRequested)
                 try
                 {
                     await Task.Delay(_nextRun.elapse, cancellationToken);
-                    TriggeredEventHander?.Invoke(this, new CronEventArgs(cancellationToken));
+                    TriggeredEventHandler?.Invoke(this,
+                        new CronEventArgs(cancellationToken, _nextOccasion.CronId, _nextOccasion.CronExpression));
 
                     _nextRun = GetNextTimeElapse();
                 }
@@ -52,10 +60,18 @@
 
         private (TimeSpan elapse, CronResult result) GetNextTimeElapse()
         {
-            var now = DateTime.UtcNow;
-            _nextUtc = _expression.GetNextOccurrence(now);
-            return _nextUtc != null
-                ? (_nextUtc.GetValueOrDefault() - now + TimeSpan.FromMilliseconds(10), CronResult.Success)
+            var dtNow = DateTime.UtcNow;
+            var now = new DateTime(dtNow.Year, dtNow.Month, dtNow.Day, dtNow.Hour, dtNow.Minute, dtNow.Second,
+                DateTimeKind.Utc);
+            _nextOccasion = _expressions.OrderBy(e => e.Expression.GetNextOccurrence(now)).Select(e =>
+                new NextOccasion
+                {
+                    CronId = e.CronId,
+                    NextUtc = e.Expression.GetNextOccurrence(now),
+                    CronExpression = e.CronExpression
+                }).FirstOrDefault();
+            return _nextOccasion?.NextUtc != null
+                ? (_nextOccasion.NextUtc.GetValueOrDefault() - now, CronResult.Success)
                 : (default, CronResult.Fail);
         }
     }

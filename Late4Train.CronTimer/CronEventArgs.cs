@@ -5,13 +5,15 @@
 
     public class CronEventArgs : EventArgs
     {
-        public CronEventArgs(CancellationToken token)
+        public CronEventArgs(CancellationToken cancellationToken, Guid cronId, string cronExpression)
         {
-            CancellationToken = token;
-            TriggeredUtcDateTime = DateTime.UtcNow;
+            (CancellationToken, TriggeredUtcDateTime, CronId, CronExpression) =
+                (cancellationToken, DateTime.UtcNow, cronId, cronExpression);
         }
 
+        public Guid CronId { get; }
         public DateTime TriggeredUtcDateTime { get; }
         public CancellationToken CancellationToken { get; }
+        public string CronExpression { get; }
     }
 }

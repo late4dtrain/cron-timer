@@ -25,7 +25,7 @@ namespace Late4Train.CronTimer.Cronos
     using System;
 
     /// <summary>
-    /// Represents an exception that's thrown, when invalid Cron expression is given.
+    ///     Represents an exception that's thrown, when invalid Cron expression is given.
     /// </summary>
 #if !NETSTANDARD1_0
     [Serializable]
@@ -33,15 +33,11 @@ namespace Late4Train.CronTimer.Cronos
     public class CronFormatException : FormatException
     {
         /// <summary>
-        /// Initializes a new instance of the <see cref="CronFormatException"/> class with
-        /// the given message.
+        ///     Initializes a new instance of the <see cref="CronFormatException" /> class with
+        ///     the given message.
         /// </summary>
-        public CronFormatException(string message) : base(message)
-        {
-        }
+        public CronFormatException(string message) : base(message) { }
 
-        internal CronFormatException(CronField field, string message) : this($"{field}: {message}")
-        {
-        }
+        internal CronFormatException(CronField field, string message) : this($"{field}: {message}") { }
     }
 }

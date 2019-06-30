@@ -54,16 +54,15 @@ namespace Late4Train.CronTimer.Cronos
                 invalidDateTime.Hour, invalidDateTime.Minute, 0, 0, invalidDateTime.Kind);
 
             while (zone.IsInvalidTime(dstTransitionDateTime))
-            {
                 dstTransitionDateTime = dstTransitionDateTime.AddMinutes(1);
-            }
 
             var dstOffset = zone.GetUtcOffset(dstTransitionDateTime);
 
             return new DateTimeOffset(dstTransitionDateTime, dstOffset);
         }
 
-        public static DateTimeOffset GetStandardTimeStart(TimeZoneInfo zone, DateTime ambiguousTime, TimeSpan daylightOffset)
+        public static DateTimeOffset GetStandardTimeStart(TimeZoneInfo zone, DateTime ambiguousTime,
+            TimeSpan daylightOffset)
         {
             var dstTransitionEnd = GetDstTransitionEndDateTime(zone, ambiguousTime);
 
@@ -77,7 +76,8 @@ namespace Late4Train.CronTimer.Cronos
             return new DateTimeOffset(dstTransitionEnd, zone.BaseUtcOffset);
         }
 
-        public static DateTimeOffset GetDaylightTimeEnd(TimeZoneInfo zone, DateTime ambiguousTime, TimeSpan daylightOffset)
+        public static DateTimeOffset GetDaylightTimeEnd(TimeZoneInfo zone, DateTime ambiguousTime,
+            TimeSpan daylightOffset)
         {
             var daylightTransitionEnd = GetDstTransitionEndDateTime(zone, ambiguousTime);
 
@@ -91,13 +91,12 @@ namespace Late4Train.CronTimer.Cronos
 
         private static DateTime GetDstTransitionEndDateTime(TimeZoneInfo zone, DateTime ambiguousDateTime)
         {
-            var dstTransitionDateTime = new DateTime(ambiguousDateTime.Year, ambiguousDateTime.Month, ambiguousDateTime.Day,
+            var dstTransitionDateTime = new DateTime(ambiguousDateTime.Year, ambiguousDateTime.Month,
+                ambiguousDateTime.Day,
                 ambiguousDateTime.Hour, ambiguousDateTime.Minute, 0, 0, ambiguousDateTime.Kind);
 
             while (zone.IsAmbiguousTime(dstTransitionDateTime))
-            {
                 dstTransitionDateTime = dstTransitionDateTime.AddMinutes(1);
-            }
 
             return dstTransitionDateTime;
         }

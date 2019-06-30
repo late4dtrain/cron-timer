@@ -45,6 +45,13 @@ namespace Late4Train.CronTimer.Cronos
         public static readonly CronField Hours = new CronField("Hours", 0, 23, null, true);
         public static readonly CronField Minutes = new CronField("Minutes", 0, 59, null, true);
         public static readonly CronField Seconds = new CronField("Seconds", 0, 59, null, true);
+        public readonly long AllBits;
+        public readonly bool CanDefineInterval;
+        public readonly int First;
+        public readonly int Last;
+
+        public readonly string Name;
+        public readonly int[] Names;
 
         static CronField()
         {
@@ -75,13 +82,6 @@ namespace Late4Train.CronTimer.Cronos
             }
         }
 
-        public readonly string Name;
-        public readonly int First;
-        public readonly int Last;
-        public readonly int[] Names;
-        public readonly bool CanDefineInterval;
-        public readonly long AllBits;
-
         private CronField(string name, int first, int last, int[] names, bool canDefineInterval)
         {
             Name = name;
@@ -89,10 +89,7 @@ namespace Late4Train.CronTimer.Cronos
             Last = last;
             Names = names;
             CanDefineInterval = canDefineInterval;
-            for (int i = First; i <= Last; i++)
-            {
-                AllBits = AllBits | (1L << i);
-            }
+            for (var i = First; i <= Last; i++) AllBits = AllBits | (1L << i);
         }
 
         public override string ToString()

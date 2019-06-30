@@ -29,9 +29,9 @@ namespace Late4Train.CronTimer.Cronos
     using System.Text;
 
     /// <summary>
-    /// Provides a parser and scheduler for cron expressions.
+    ///     Provides a parser and scheduler for cron expressions.
     /// </summary>
-    public sealed class CronExpression: IEquatable<CronExpression>
+    public sealed class CronExpression : IEquatable<CronExpression>
     {
         private const long NotFound = 0;
 
@@ -63,39 +63,62 @@ namespace Late4Train.CronTimer.Cronos
             50, 31, 19, 15, 30, 14, 13, 12
         };
 
-        private long  _second;     // 60 bits -> from 0 bit to 59 bit
-        private long  _minute;     // 60 bits -> from 0 bit to 59 bit
-        private int   _hour;       // 24 bits -> from 0 bit to 23 bit
-        private int   _dayOfMonth; // 31 bits -> from 1 bit to 31 bit
-        private short _month;      // 12 bits -> from 1 bit to 12 bit
-        private byte  _dayOfWeek;  // 8 bits  -> from 0 bit to 7 bit
-
-        private byte  _nthDayOfWeek;
-        private byte  _lastMonthOffset;
+        private int _dayOfMonth; // 31 bits -> from 1 bit to 31 bit
+        private byte _dayOfWeek; // 8 bits  -> from 0 bit to 7 bit
 
         private CronExpressionFlag _flags;
+        private int _hour; // 24 bits -> from 0 bit to 23 bit
+        private byte _lastMonthOffset;
+        private long _minute; // 60 bits -> from 0 bit to 59 bit
+        private short _month; // 12 bits -> from 1 bit to 12 bit
 
-        private CronExpression()
+        private byte _nthDayOfWeek;
+
+        private long _second; // 60 bits -> from 0 bit to 59 bit
+
+        private CronExpression() { }
+
+        /// <summary>
+        ///     Determines whether the specified <see cref="object" /> is equal to the current <see cref="object" />.
+        /// </summary>
+        /// <param name="other">The <see cref="object" /> to compare with the current <see cref="object" />.</param>
+        /// <returns>
+        ///     <c>true</c> if the specified <see cref="object" /> is equal to the current <see cref="object" />; otherwise,
+        ///     <c>false</c>.
+        /// </returns>
+        public bool Equals(CronExpression other)
         {
+            if (other == null) return false;
+
+            return _second == other._second &&
+                   _minute == other._minute &&
+                   _hour == other._hour &&
+                   _dayOfMonth == other._dayOfMonth &&
+                   _month == other._month &&
+                   _dayOfWeek == other._dayOfWeek &&
+                   _nthDayOfWeek == other._nthDayOfWeek &&
+                   _lastMonthOffset == other._lastMonthOffset &&
+                   _flags == other._flags;
         }
 
-        ///<summary>
-        /// Constructs a new <see cref="CronExpression"/> based on the specified
-        /// cron expression. It's supported expressions consisting of 5 fields:
-        /// minute, hour, day of month, month, day of week. 
-        /// If you want to parse non-standard cron expressions use <see cref="Parse(string, CronFormat)"/> with specified CronFields argument.
-        /// See more: <a href="https://github.com/HangfireIO/Cronos">https://github.com/HangfireIO/Cronos</a>
+        /// <summary>
+        ///     Constructs a new <see cref="CronExpression" /> based on the specified
+        ///     cron expression. It's supported expressions consisting of 5 fields:
+        ///     minute, hour, day of month, month, day of week.
+        ///     If you want to parse non-standard cron expressions use <see cref="Parse(string, CronFormat)" /> with specified
+        ///     CronFields argument.
+        ///     See more: <a href="https://github.com/HangfireIO/Cronos">https://github.com/HangfireIO/Cronos</a>
         /// </summary>
         public static CronExpression Parse(string expression)
         {
             return Parse(expression, CronFormat.Standard);
         }
 
-        ///<summary>
-        /// Constructs a new <see cref="CronExpression"/> based on the specified
-        /// cron expression. It's supported expressions consisting of 5 or 6 fields:
-        /// second (optional), minute, hour, day of month, month, day of week. 
-        /// See more: <a href="https://github.com/HangfireIO/Cronos">https://github.com/HangfireIO/Cronos</a>
+        /// <summary>
+        ///     Constructs a new <see cref="CronExpression" /> based on the specified
+        ///     cron expression. It's supported expressions consisting of 5 or 6 fields:
+        ///     second (optional), minute, hour, day of month, month, day of week.
+        ///     See more: <a href="https://github.com/HangfireIO/Cronos">https://github.com/HangfireIO/Cronos</a>
         /// </summary>
 #if !NET40
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -117,7 +140,9 @@ namespace Late4Train.CronTimer.Cronos
                     cronExpression = ParseMacro(ref pointer);
                     SkipWhiteSpaces(ref pointer);
 
-                    if (cronExpression == null || !IsEndOfString(*pointer)) ThrowFormatException("Macro: Unexpected character '{0}' on position {1}.", *pointer, pointer - value);
+                    if (cronExpression == null || !IsEndOfString(*pointer))
+                        ThrowFormatException("Macro: Unexpected character '{0}' on position {1}.", *pointer,
+                            pointer - value);
 
                     return cronExpression;
                 }
@@ -137,30 +162,30 @@ namespace Late4Train.CronTimer.Cronos
                 cronExpression._minute = ParseField(CronField.Minutes, ref pointer, ref cronExpression._flags);
                 ParseWhiteSpace(CronField.Minutes, ref pointer);
 
-                cronExpression._hour = (int)ParseField(CronField.Hours, ref pointer, ref cronExpression._flags);
+                cronExpression._hour = (int) ParseField(CronField.Hours, ref pointer, ref cronExpression._flags);
                 ParseWhiteSpace(CronField.Hours, ref pointer);
 
-                cronExpression._dayOfMonth = (int)ParseDayOfMonth(ref pointer, ref cronExpression._flags, ref cronExpression._lastMonthOffset);
+                cronExpression._dayOfMonth = (int) ParseDayOfMonth(ref pointer, ref cronExpression._flags,
+                    ref cronExpression._lastMonthOffset);
                 ParseWhiteSpace(CronField.DaysOfMonth, ref pointer);
 
-                cronExpression._month = (short)ParseField(CronField.Months, ref pointer, ref cronExpression._flags);
+                cronExpression._month = (short) ParseField(CronField.Months, ref pointer, ref cronExpression._flags);
                 ParseWhiteSpace(CronField.Months, ref pointer);
 
-                cronExpression._dayOfWeek = (byte)ParseDayOfWeek(ref pointer, ref cronExpression._flags, ref cronExpression._nthDayOfWeek);
+                cronExpression._dayOfWeek = (byte) ParseDayOfWeek(ref pointer, ref cronExpression._flags,
+                    ref cronExpression._nthDayOfWeek);
                 ParseEndOfString(ref pointer);
 
                 // Make sundays equivalent.
-                if ((cronExpression._dayOfWeek & SundayBits) != 0)
-                {
-                    cronExpression._dayOfWeek |= SundayBits;
-                }
+                if ((cronExpression._dayOfWeek & SundayBits) != 0) cronExpression._dayOfWeek |= SundayBits;
 
                 return cronExpression;
             }
         }
 
         /// <summary>
-        /// Calculates next occurrence starting with <paramref name="fromUtc"/> (optionally <paramref name="inclusive"/>) in UTC time zone.
+        ///     Calculates next occurrence starting with <paramref name="fromUtc" /> (optionally <paramref name="inclusive" />) in
+        ///     UTC time zone.
         /// </summary>
         public DateTime? GetNextOccurrence(DateTime fromUtc, bool inclusive = false)
         {
@@ -173,10 +198,10 @@ namespace Late4Train.CronTimer.Cronos
         }
 
         /// <summary>
-        /// Returns the list of next occurrences within the given date/time range,
-        /// including <paramref name="fromUtc"/> and excluding <paramref name="toUtc"/>
-        /// by default, and UTC time zone. When none of the occurrences found, an 
-        /// empty list is returned.
+        ///     Returns the list of next occurrences within the given date/time range,
+        ///     including <paramref name="fromUtc" /> and excluding <paramref name="toUtc" />
+        ///     by default, and UTC time zone. When none of the occurrences found, an
+        ///     empty list is returned.
         /// </summary>
         public IEnumerable<DateTime> GetOccurrences(
             DateTime fromUtc,
@@ -191,13 +216,12 @@ namespace Late4Train.CronTimer.Cronos
                 // ReSharper disable once RedundantArgumentDefaultValue
                 // ReSharper disable once ArgumentsStyleLiteral
                 occurrence = GetNextOccurrence(occurrence.Value, inclusive: false))
-            {
                 yield return occurrence.Value;
-            }
         }
 
         /// <summary>
-        /// Calculates next occurrence starting with <paramref name="fromUtc"/> (optionally <paramref name="inclusive"/>) in given <paramref name="zone"/>
+        ///     Calculates next occurrence starting with <paramref name="fromUtc" /> (optionally <paramref name="inclusive" />) in
+        ///     given <paramref name="zone" />
         /// </summary>
         public DateTime? GetNextOccurrence(DateTime fromUtc, TimeZoneInfo zone, bool inclusive = false)
         {
@@ -218,9 +242,9 @@ namespace Late4Train.CronTimer.Cronos
         }
 
         /// <summary>
-        /// Returns the list of next occurrences within the given date/time range, including
-        /// <paramref name="fromUtc"/> and excluding <paramref name="toUtc"/> by default, and 
-        /// specified time zone. When none of the occurrences found, an empty list is returned.
+        ///     Returns the list of next occurrences within the given date/time range, including
+        ///     <paramref name="fromUtc" /> and excluding <paramref name="toUtc" /> by default, and
+        ///     specified time zone. When none of the occurrences found, an empty list is returned.
         /// </summary>
         public IEnumerable<DateTime> GetOccurrences(
             DateTime fromUtc,
@@ -236,13 +260,12 @@ namespace Late4Train.CronTimer.Cronos
                 // ReSharper disable once RedundantArgumentDefaultValue
                 // ReSharper disable once ArgumentsStyleLiteral
                 occurrence = GetNextOccurrence(occurrence.Value, zone, inclusive: false))
-            {
                 yield return occurrence.Value;
-            }
         }
 
         /// <summary>
-        /// Calculates next occurrence starting with <paramref name="from"/> (optionally <paramref name="inclusive"/>) in given <paramref name="zone"/>
+        ///     Calculates next occurrence starting with <paramref name="from" /> (optionally <paramref name="inclusive" />) in
+        ///     given <paramref name="zone" />
         /// </summary>
         public DateTimeOffset? GetNextOccurrence(DateTimeOffset from, TimeZoneInfo zone, bool inclusive = false)
         {
@@ -259,9 +282,9 @@ namespace Late4Train.CronTimer.Cronos
         }
 
         /// <summary>
-        /// Returns the list of occurrences within the given date/time offset range,
-        /// including <paramref name="from"/> and excluding <paramref name="to"/> by
-        /// default. When none of the occurrences found, an empty list is returned.
+        ///     Returns the list of occurrences within the given date/time offset range,
+        ///     including <paramref name="from" /> and excluding <paramref name="to" /> by
+        ///     default. When none of the occurrences found, an empty list is returned.
         /// </summary>
         public IEnumerable<DateTimeOffset> GetOccurrences(
             DateTimeOffset from,
@@ -277,16 +300,14 @@ namespace Late4Train.CronTimer.Cronos
                 // ReSharper disable once RedundantArgumentDefaultValue
                 // ReSharper disable once ArgumentsStyleLiteral
                 occurrence = GetNextOccurrence(occurrence.Value, zone, inclusive: false))
-            {
                 yield return occurrence.Value;
-            }
         }
 
         /// <inheritdoc />
         public override string ToString()
         {
             var expressionBuilder = new StringBuilder();
-            
+
             AppendFieldValue(expressionBuilder, CronField.Seconds, _second).Append(' ');
             AppendFieldValue(expressionBuilder, CronField.Minutes, _minute).Append(' ');
             AppendFieldValue(expressionBuilder, CronField.Hours, _hour).Append(' ');
@@ -298,43 +319,24 @@ namespace Late4Train.CronTimer.Cronos
         }
 
         /// <summary>
-        /// Determines whether the specified <see cref="object"/> is equal to the current <see cref="object"/>.
-        /// </summary>
-        /// <param name="other">The <see cref="object"/> to compare with the current <see cref="object"/>.</param>
-        /// <returns>
-        /// <c>true</c> if the specified <see cref="object"/> is equal to the current <see cref="object"/>; otherwise, <c>false</c>.
-        /// </returns>
-        public bool Equals(CronExpression other)
-        {
-            if (other == null) return false;
-
-            return _second == other._second &&
-                   _minute == other._minute &&
-                   _hour == other._hour &&
-                   _dayOfMonth == other._dayOfMonth &&
-                   _month == other._month &&
-                   _dayOfWeek == other._dayOfWeek &&
-                   _nthDayOfWeek == other._nthDayOfWeek &&
-                   _lastMonthOffset == other._lastMonthOffset &&
-                   _flags == other._flags;
-        }
-
-        /// <summary>
-        /// Determines whether the specified <see cref="object" /> is equal to this instance.
+        ///     Determines whether the specified <see cref="object" /> is equal to this instance.
         /// </summary>
         /// <param name="obj">The <see cref="object" /> to compare with this instance.</param>
         /// <returns>
-        /// <c>true</c> if the specified <see cref="object" /> is equal to this instance;
-        /// otherwise, <c>false</c>.
+        ///     <c>true</c> if the specified <see cref="object" /> is equal to this instance;
+        ///     otherwise, <c>false</c>.
         /// </returns>
-        public override bool Equals(object obj) => Equals(obj as CronExpression);
+        public override bool Equals(object obj)
+        {
+            return Equals(obj as CronExpression);
+        }
 
         /// <summary>
-        /// Returns a hash code for this instance.
+        ///     Returns a hash code for this instance.
         /// </summary>
         /// <returns>
-        /// A hash code for this instance, suitable for use in hashing algorithms and data
-        /// structures like a hash table. 
+        ///     A hash code for this instance, suitable for use in hashing algorithms and data
+        ///     structures like a hash table.
         /// </returns>
         [SuppressMessage("ReSharper", "NonReadonlyMemberInGetHashCode")]
         public override int GetHashCode()
@@ -349,21 +351,27 @@ namespace Late4Train.CronTimer.Cronos
                 hashCode = (hashCode * 397) ^ _dayOfWeek.GetHashCode();
                 hashCode = (hashCode * 397) ^ _nthDayOfWeek.GetHashCode();
                 hashCode = (hashCode * 397) ^ _lastMonthOffset.GetHashCode();
-                hashCode = (hashCode * 397) ^ (int)_flags;
+                hashCode = (hashCode * 397) ^ (int) _flags;
 
                 return hashCode;
             }
         }
 
         /// <summary>
-        /// Implements the operator ==.
+        ///     Implements the operator ==.
         /// </summary>
-        public static bool operator ==(CronExpression left, CronExpression right) => Equals(left, right);
+        public static bool operator ==(CronExpression left, CronExpression right)
+        {
+            return Equals(left, right);
+        }
 
         /// <summary>
-        /// Implements the operator !=.
+        ///     Implements the operator !=.
         /// </summary>
-        public static bool operator !=(CronExpression left, CronExpression right) => !Equals(left, right);
+        public static bool operator !=(CronExpression left, CronExpression right)
+        {
+            return !Equals(left, right);
+        }
 
 
         private DateTimeOffset? GetOccurenceByZonedTimes(DateTimeOffset from, TimeZoneInfo zone, bool inclusive)
@@ -374,15 +382,17 @@ namespace Late4Train.CronTimer.Cronos
             {
                 var currentOffset = from.Offset;
                 var standardOffset = zone.BaseUtcOffset;
-               
+
                 if (standardOffset != currentOffset)
                 {
                     var daylightOffset = TimeZoneHelper.GetDaylightOffset(zone, fromLocal);
-                    var daylightTimeLocalEnd = TimeZoneHelper.GetDaylightTimeEnd(zone, fromLocal, daylightOffset).DateTime;
+                    var daylightTimeLocalEnd =
+                        TimeZoneHelper.GetDaylightTimeEnd(zone, fromLocal, daylightOffset).DateTime;
 
                     // Early period, try to find anything here.
                     var foundInDaylightOffset = FindOccurence(fromLocal.Ticks, daylightTimeLocalEnd.Ticks, inclusive);
-                    if (foundInDaylightOffset != NotFound) return new DateTimeOffset(foundInDaylightOffset, daylightOffset);
+                    if (foundInDaylightOffset != NotFound)
+                        return new DateTimeOffset(foundInDaylightOffset, daylightOffset);
 
                     fromLocal = TimeZoneHelper.GetStandardTimeStart(zone, fromLocal, daylightOffset).DateTime;
                     inclusive = true;
@@ -393,8 +403,10 @@ namespace Late4Train.CronTimer.Cronos
 
                 if (HasFlag(CronExpressionFlag.Interval))
                 {
-                    var foundInStandardOffset = FindOccurence(fromLocal.Ticks, ambiguousIntervalLocalEnd.Ticks - 1, inclusive);
-                    if (foundInStandardOffset != NotFound) return new DateTimeOffset(foundInStandardOffset, standardOffset);
+                    var foundInStandardOffset =
+                        FindOccurence(fromLocal.Ticks, ambiguousIntervalLocalEnd.Ticks - 1, inclusive);
+                    if (foundInStandardOffset != NotFound)
+                        return new DateTimeOffset(foundInStandardOffset, standardOffset);
                 }
 
                 fromLocal = ambiguousIntervalLocalEnd;
@@ -435,12 +447,12 @@ namespace Late4Train.CronTimer.Cronos
 
             CalendarHelper.FillDateTimeParts(
                 ticks,
-                out int startSecond,
-                out int startMinute,
-                out int startHour,
-                out int startDay,
-                out int startMonth,
-                out int startYear);
+                out var startSecond,
+                out var startMinute,
+                out var startHour,
+                out var startDay,
+                out var startMonth,
+                out var startYear);
 
             var minMatchedDay = GetFirstSet(_dayOfMonth);
 
@@ -478,9 +490,12 @@ namespace Late4Train.CronTimer.Cronos
                 if (minute > startMinute) goto RolloverMinute;
                 goto ReturnResult;
 
-                RolloverDay: hour = GetFirstSet(_hour);
-                RolloverHour: minute = GetFirstSet(_minute);
-                RolloverMinute: second = GetFirstSet(_second);
+                RolloverDay:
+                hour = GetFirstSet(_hour);
+                RolloverHour:
+                minute = GetFirstSet(_minute);
+                RolloverMinute:
+                second = GetFirstSet(_second);
 
                 ReturnResult:
 
@@ -520,15 +535,13 @@ namespace Late4Train.CronTimer.Cronos
         {
             if (HasFlag(CronExpressionFlag.DayOfWeekLast) && !CalendarHelper.IsLastDayOfWeek(year, month, day) ||
                 HasFlag(CronExpressionFlag.NthDayOfWeek) && !CalendarHelper.IsNthDayOfWeek(day, _nthDayOfWeek))
-            {
                 return false;
-            }
 
             if (_dayOfWeek == CronField.DaysOfWeek.AllBits) return true;
 
             var dayOfWeek = CalendarHelper.GetDayOfWeek(year, month, day);
 
-            return ((_dayOfWeek >> (int)dayOfWeek) & 1) != 0;
+            return ((_dayOfWeek >> (int) dayOfWeek) & 1) != 0;
         }
 
 #if !NET40
@@ -537,7 +550,7 @@ namespace Late4Train.CronTimer.Cronos
         private static int GetFirstSet(long value)
         {
             // TODO: Add description and source
-            ulong res = unchecked((ulong)(value & -value) * 0x022fdd63cc95386d) >> 58;
+            var res = unchecked((ulong) (value & -value) * 0x022fdd63cc95386d) >> 58;
             return DeBruijnPositions[res];
         }
 
@@ -551,7 +564,7 @@ namespace Late4Train.CronTimer.Cronos
 #endif
         private static unsafe void SkipWhiteSpaces(ref char* pointer)
         {
-            while (IsWhiteSpace(*pointer)) { pointer++; }
+            while (IsWhiteSpace(*pointer)) pointer++;
         }
 
 #if !NET40
@@ -568,7 +581,8 @@ namespace Late4Train.CronTimer.Cronos
 #endif
         private static unsafe void ParseEndOfString(ref char* pointer)
         {
-            if (!IsWhiteSpace(*pointer) && !IsEndOfString(*pointer)) ThrowFormatException(CronField.DaysOfWeek, "Unexpected character '{0}'.", *pointer);
+            if (!IsWhiteSpace(*pointer) && !IsEndOfString(*pointer))
+                ThrowFormatException(CronField.DaysOfWeek, "Unexpected character '{0}'.", *pointer);
 
             SkipWhiteSpaces(ref pointer);
             if (!IsEndOfString(*pointer)) ThrowFormatException("Unexpected character '{0}'.", *pointer);
@@ -688,13 +702,15 @@ namespace Late4Train.CronTimer.Cronos
             return bits;
         }
 
-        private static unsafe long ParseDayOfMonth(ref char* pointer, ref CronExpressionFlag flags, ref byte lastDayOffset)
+        private static unsafe long ParseDayOfMonth(ref char* pointer, ref CronExpressionFlag flags,
+            ref byte lastDayOffset)
         {
             var field = CronField.DaysOfMonth;
 
             if (Accept(ref pointer, '*') || Accept(ref pointer, '?')) return ParseStar(field, ref pointer);
 
-            if (AcceptCharacter(ref pointer, 'L')) return ParseLastDayOfMonth(field, ref pointer, ref flags, ref lastDayOffset);
+            if (AcceptCharacter(ref pointer, 'L'))
+                return ParseLastDayOfMonth(field, ref pointer, ref flags, ref lastDayOffset);
 
             var dayOfMonth = ParseValue(field, ref pointer);
 
@@ -721,7 +737,8 @@ namespace Late4Train.CronTimer.Cronos
             var dayOfWeek = ParseValue(field, ref pointer);
 
             if (AcceptCharacter(ref pointer, 'L')) return ParseLastWeekDay(dayOfWeek, ref flags);
-            if (Accept(ref pointer, '#')) return ParseNthWeekDay(field, ref pointer, dayOfWeek, ref flags, out nthWeekDay);
+            if (Accept(ref pointer, '#'))
+                return ParseNthWeekDay(field, ref pointer, dayOfWeek, ref flags, out nthWeekDay);
 
             var bits = ParseRange(field, ref pointer, dayOfWeek, ref flags);
             if (Accept(ref pointer, ',')) bits |= ParseList(field, ref pointer, ref flags);
@@ -786,11 +803,12 @@ namespace Late4Train.CronTimer.Cronos
 #if !NET40
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
-        private static unsafe long ParseLastDayOfMonth(CronField field, ref char* pointer, ref CronExpressionFlag flags, ref byte lastMonthOffset)
+        private static unsafe long ParseLastDayOfMonth(CronField field, ref char* pointer, ref CronExpressionFlag flags,
+            ref byte lastMonthOffset)
         {
             flags |= CronExpressionFlag.DayOfMonthLast;
 
-            if (Accept(ref pointer, '-')) lastMonthOffset = (byte)ParseNumber(field, ref pointer, 0, field.Last - 1);
+            if (Accept(ref pointer, '-')) lastMonthOffset = (byte) ParseNumber(field, ref pointer, 0, field.Last - 1);
             if (AcceptCharacter(ref pointer, 'W')) flags |= CronExpressionFlag.NearestWeekday;
             return field.AllBits;
         }
@@ -798,9 +816,10 @@ namespace Late4Train.CronTimer.Cronos
 #if !NET40
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
-        private static unsafe long ParseNthWeekDay(CronField field, ref char* pointer, int dayOfWeek, ref CronExpressionFlag flags, out byte nthDayOfWeek)
+        private static unsafe long ParseNthWeekDay(CronField field, ref char* pointer, int dayOfWeek,
+            ref CronExpressionFlag flags, out byte nthDayOfWeek)
         {
-            nthDayOfWeek = (byte)ParseNumber(field, ref pointer, MinNthDayOfWeek, MaxNthDayOfWeek);
+            nthDayOfWeek = (byte) ParseNumber(field, ref pointer, MinNthDayOfWeek, MaxNthDayOfWeek);
             flags |= CronExpressionFlag.NthDayOfWeek;
             return GetBit(dayOfWeek);
         }
@@ -847,9 +866,7 @@ namespace Late4Train.CronTimer.Cronos
         {
             var num = GetNumber(ref pointer, null);
             if (num == -1 || num < low || num > high)
-            {
                 ThrowFormatException(field, "Value must be a number between {0} and {1} (all inclusive).", low, high);
-            }
             return num;
         }
 
@@ -860,9 +877,8 @@ namespace Late4Train.CronTimer.Cronos
         {
             var num = GetNumber(ref pointer, field.Names);
             if (num == -1 || num < field.First || num > field.Last)
-            {
-                ThrowFormatException(field, "Value must be a number between {0} and {1} (all inclusive).", field.First, field.Last);
-            }
+                ThrowFormatException(field, "Value must be a number between {0} and {1} (all inclusive).", field.First,
+                    field.Last);
             return num;
         }
 
@@ -876,7 +892,7 @@ namespace Late4Train.CronTimer.Cronos
             // Unset 7 bit for Day of week field because both 0 and 7 stand for Sunday.
             if (field == CronField.DaysOfWeek) fieldValue &= ~(1 << field.Last);
 
-            for (var i = GetFirstSet(fieldValue);; i = GetFirstSet(fieldValue >> i << i))
+            for (var i = GetFirstSet(fieldValue);; i = GetFirstSet((fieldValue >> i) << i))
             {
                 expressionBuilder.Append(i);
                 if (fieldValue >> ++i == 0) break;
@@ -898,7 +914,7 @@ namespace Late4Train.CronTimer.Cronos
             }
             else
             {
-                AppendFieldValue(expressionBuilder, CronField.DaysOfMonth, (uint)domValue);
+                AppendFieldValue(expressionBuilder, CronField.DaysOfMonth, (uint) domValue);
             }
 
             if (HasFlag(CronExpressionFlag.NearestWeekday)) expressionBuilder.Append('W');
@@ -934,10 +950,7 @@ namespace Late4Train.CronTimer.Cronos
         private static long GetRangeBits(int low, int high, int step)
         {
             var bits = 0L;
-            for (var i = low; i <= high; i += step)
-            {
-                SetBit(ref bits, i);
-            }
+            for (var i = low; i <= high; i += step) SetBit(ref bits, i);
             return bits;
         }
 
@@ -951,7 +964,7 @@ namespace Late4Train.CronTimer.Cronos
             if (field == CronField.DaysOfWeek) high--;
 
             var bits = GetRangeBits(num1, high, step);
-            
+
             num1 = field.First + step - (high - num1) % step - 1;
             return bits | GetRangeBits(num1, num2, step);
         }
@@ -992,12 +1005,8 @@ namespace Late4Train.CronTimer.Cronos
             var length = names.Length;
 
             for (var i = 0; i < length; i++)
-            {
                 if (buffer == names[i])
-                {
                     return i;
-                }
-            }
 
             return -1;
         }
@@ -1005,19 +1014,21 @@ namespace Late4Train.CronTimer.Cronos
         [MethodImpl(MethodImplOptions.NoInlining)]
         private static void ThrowFormatException(CronField field, string format, params object[] args)
         {
-            throw new CronFormatException(field, String.Format(format, args));
+            throw new CronFormatException(field, string.Format(format, args));
         }
 
         [MethodImpl(MethodImplOptions.NoInlining)]
         private static void ThrowFormatException(string format, params object[] args)
         {
-            throw new CronFormatException(String.Format(format, args));
+            throw new CronFormatException(string.Format(format, args));
         }
 
         [MethodImpl(MethodImplOptions.NoInlining)]
         private static void ThrowFromShouldBeLessThanToException(string fromName, string toName)
         {
-            throw new ArgumentException($"The value of the {fromName} argument should be less than the value of the {toName} argument.", fromName);
+            throw new ArgumentException(
+                $"The value of the {fromName} argument should be less than the value of the {toName} argument.",
+                fromName);
         }
 
         [MethodImpl(MethodImplOptions.NoInlining)]
@@ -1071,7 +1082,7 @@ namespace Late4Train.CronTimer.Cronos
 #endif
         private static bool IsLetter(int code)
         {
-            return (code >= 65 && code <= 90) || (code >= 97 && code <= 122);
+            return code >= 65 && code <= 90 || code >= 97 && code <= 122;
         }
 
 #if !NET40
@@ -1087,10 +1098,7 @@ namespace Late4Train.CronTimer.Cronos
 #endif
         private static int ToUpper(int code)
         {
-            if (code >= 97 && code <= 122)
-            {
-                return code - 32;
-            }
+            if (code >= 97 && code <= 122) return code - 32;
 
             return code;
         }

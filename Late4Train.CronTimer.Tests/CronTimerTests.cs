@@ -1,6 +1,6 @@
 namespace Late4Train.CronTimer.Tests
 {
-    using Late4Train.CronTimer;
+    using Cronos;
     using Xunit;
 
     public class CronTimerTests
@@ -8,7 +8,14 @@ namespace Late4Train.CronTimer.Tests
         [Fact]
         public void Initialise()
         {
-            var timer = new CronTimer("*/1 * * * * *", true);
+            var timer = new CronTimer(options =>
+            {
+                options.AddCronTabs(new CronTab("*/2 * * * * *", CronFormat.IncludeSeconds),
+                    new CronTab("*/3 * * * * *", CronFormat.IncludeSeconds));
+            });
+
+            timer.Start();
+            timer.Stop();
         }
     }
 }
