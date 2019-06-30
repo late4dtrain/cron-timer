@@ -20,7 +20,7 @@
 
         [Theory]
         [MemberData(nameof(GetCronFacts))]
-        public void Original(string expression, CronFormat format, DateTime testDate, DateTime? nextDate)
+        public void OriginalE2E(string expression, CronFormat format, DateTime testDate, DateTime? nextDate)
         {
             var cronExpression = CronExpression.Parse(expression, format);
 
