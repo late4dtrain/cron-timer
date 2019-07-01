@@ -4,7 +4,7 @@
     using System.Linq;
     using System.Threading;
     using System.Threading.Tasks;
-    using Cronos;
+    using Extensions;
 
     public class CronTimer : ICronTimer
     {
@@ -18,12 +18,7 @@
         public CronTimer(Action<CronOption> action)
         {
             action(_cronOption);
-            _expressions = _cronOption.Expressions.Select(e => new CronExpressionAdapter
-            {
-                CronId = e.Id,
-                Expression = CronExpression.Parse(e.Expression, e.Format),
-                CronExpression = e.Expression
-            }).ToArray();
+            _expressions = _cronOption.Expressions.Select(e => e.ToExpressionAdapter()).ToArray();
         }
 
         private bool HasNext => _nextRun.result == CronResult.Success;
@@ -60,16 +55,11 @@
 
         private (TimeSpan elapse, CronResult result) GetNextTimeElapse()
         {
-            var dtNow = DateTime.UtcNow;
-            var now = new DateTime(dtNow.Year, dtNow.Month, dtNow.Day, dtNow.Hour, dtNow.Minute, dtNow.Second,
-                DateTimeKind.Utc);
-            _nextOccasion = _expressions.OrderBy(e => e.Expression.GetNextOccurrence(now)).Select(e =>
-                new NextOccasion
-                {
-                    CronId = e.CronId,
-                    NextUtc = e.Expression.GetNextOccurrence(now),
-                    CronExpression = e.CronExpression
-                }).FirstOrDefault();
+            var now = DateTime.UtcNow.ToFlat();
+
+            _nextOccasion = _expressions.OrderBy(e => e.Expression.GetNextOccurrence(now))
+                .Select(e => e.ToNextOccasion(now)).FirstOrDefault();
+
             return _nextOccasion?.NextUtc != null
                 ? (_nextOccasion.NextUtc.GetValueOrDefault() - now, CronResult.Success)
                 : (default, CronResult.Fail);
