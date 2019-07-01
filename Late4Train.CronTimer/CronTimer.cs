@@ -1,39 +1,36 @@
 ﻿namespace Late4Train.CronTimer
 {
     using System;
-    using System.Linq;
     using System.Threading;
     using System.Threading.Tasks;
     using Extensions;
 
     public class CronTimer : ICronTimer
     {
-        private readonly CronOption _cronOption = new CronOption();
-        private readonly CronExpressionAdapter[] _expressions;
+        private readonly NextTimer _nextTimer;
+        private readonly CronOption _option = new CronOption();
         private CancellationTokenSource _cancellationTokenSource;
-        private NextOccasion _nextOccasion;
-        private (TimeSpan elapse, CronResult result) _nextRun;
+        private long _interval;
         public EventHandler<CronEventArgs> TriggeredEventHandler;
 
-        public CronTimer(Action<CronOption> action)
+        public CronTimer(Func<CronOption, CronOption> optionFactory)
         {
-            action(_cronOption);
-            _expressions = _cronOption.Expressions.Select(e => e.ToExpressionAdapter()).ToArray();
+            _nextTimer = NextTimer.Create(optionFactory(_option));
         }
 
-        private bool HasNext => _nextRun.result == CronResult.Success;
+        private bool HasNext => _interval > 0;
 
         public async void Start()
         {
             _cancellationTokenSource = new CancellationTokenSource();
-            _nextRun = GetNextTimeElapse();
+            _interval = _nextTimer.GetNextTimeElapse();
             await RunAsync(_cancellationTokenSource.Token);
         }
 
         public void Stop()
         {
             _cancellationTokenSource.Cancel();
-            _nextRun = (default, CronResult.Fail);
+            _interval = default;
         }
 
         private async Task RunAsync(CancellationToken cancellationToken)
@@ -41,28 +38,16 @@
             while (HasNext && !cancellationToken.IsCancellationRequested)
                 try
                 {
-                    await Task.Delay(_nextRun.elapse, cancellationToken);
+                    await Task.Delay(_interval.ToMilliseconds(), cancellationToken);
                     TriggeredEventHandler?.Invoke(this,
-                        new CronEventArgs(cancellationToken, _nextOccasion.CronId, _nextOccasion.CronExpression));
+                        new CronEventArgs(cancellationToken, _nextTimer.CronId, _nextTimer.CronExpression));
 
-                    _nextRun = GetNextTimeElapse();
+                    _interval = _nextTimer.GetNextTimeElapse();
                 }
                 catch (TaskCanceledException)
                 {
                     break;
                 }
-        }
-
-        private (TimeSpan elapse, CronResult result) GetNextTimeElapse()
-        {
-            var now = DateTime.UtcNow.ToFlat();
-
-            _nextOccasion = _expressions.OrderBy(e => e.Expression.GetNextOccurrence(now))
-                .Select(e => e.ToNextOccasion(now)).FirstOrDefault();
-
-            return _nextOccasion?.NextUtc != null
-                ? (_nextOccasion.NextUtc.GetValueOrDefault() - now, CronResult.Success)
-                : (default, CronResult.Fail);
         }
     }
 }

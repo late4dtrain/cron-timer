@@ -197,6 +197,13 @@ namespace Late4Train.CronTimer.Cronos
             return new DateTime(found, DateTimeKind.Utc);
         }
 
+        public long GetIntervalToNext(DateTime fromUtc, bool inclusive = false)
+        {
+            if (fromUtc.Kind != DateTimeKind.Utc) ThrowWrongDateTimeKindException(nameof(fromUtc));
+
+            return FindOccurence(fromUtc.Ticks, inclusive);
+        }
+
         /// <summary>
         ///     Returns the list of next occurrences within the given date/time range,
         ///     including <paramref name="fromUtc" /> and excluding <paramref name="toUtc" />

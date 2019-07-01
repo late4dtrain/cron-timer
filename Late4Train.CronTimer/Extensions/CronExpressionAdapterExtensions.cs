@@ -8,7 +8,7 @@
             return new NextOccasion
             {
                 CronId = e.CronId,
-                NextUtc = e.Expression.GetNextOccurrence(now),
+                Interval = e.Expression.GetIntervalToNext(now),
                 CronExpression = e.CronExpression
             };
         }

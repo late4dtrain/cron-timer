@@ -12,6 +12,7 @@ namespace Late4Train.CronTimer.Tests
             {
                 options.AddCronTabs(new CronTab("*/2 * * * * *", CronFormat.IncludeSeconds),
                     new CronTab("*/3 * * * * *", CronFormat.IncludeSeconds));
+                return options;
             });
 
             timer.Start();

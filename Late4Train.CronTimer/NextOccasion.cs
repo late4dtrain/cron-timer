@@ -4,7 +4,7 @@
 
     internal class NextOccasion
     {
-        public DateTime? NextUtc { get; set; }
+        public long Interval { get; set; }
         public Guid CronId { get; set; }
         public string CronExpression { get; set; }
     }
