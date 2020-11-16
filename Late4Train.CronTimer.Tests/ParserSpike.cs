@@ -1,5 +1,6 @@
 ﻿namespace Late4dTrain.CronTimer.Tests
 {
+    using System.Linq;
     using System.Text.RegularExpressions;
     using FluentAssertions;
     using Xunit;
@@ -28,12 +29,12 @@
             schedule switch
             {
                 var s when R(s, @"[6][0-9]", out _) => "Didn't match at all",
-                var s when R(s, @"[1-5]?[0-9]", out var atMinute) => $"At minute {atMinute.Captures[0].Value}",
+                var s when R(s, @"[1-5]?[0-9]", out var matches) => $"At minute {matches[0].Groups[0].Value}",
                 var s when R(s, @"[*]", out _) => "Every minute",
                 _ => "Didn't match at all"
             };
 
-        private bool R(string input, string pattern, out Match match)
-            => (match = Regex.Match(input, pattern)).Success;
+        private bool R(string input, string pattern, out MatchCollection matches) 
+            => (matches = new Regex(pattern).Matches(input)).Any();
     }
 }
