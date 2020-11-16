@@ -3,6 +3,8 @@
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <AssemblyName>Late4dTrain.CronTimer</AssemblyName>
+    <RootNamespace>Late4dTrain.CronTimer</RootNamespace>
   </PropertyGroup>
 
 </Project>

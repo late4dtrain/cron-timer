@@ -20,7 +20,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-namespace Late4Train.CronTimer.Cronos
+namespace Late4dTrain.CronTimer.Cronos
 {
     internal sealed class CronField
     {

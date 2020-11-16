@@ -1,4 +1,4 @@
-﻿namespace Late4Train.CronTimer.Tests
+﻿namespace Late4dTrain.CronTimer.Tests
 {
     using System;
     using System.Collections.Generic;

@@ -1,4 +1,4 @@
-﻿namespace Late4Train.CronTimer.Tests
+﻿namespace Late4dTrain.CronTimer.Tests
 {
     using System.Text.RegularExpressions;
     using FluentAssertions;
@@ -24,18 +24,16 @@
             result.Should().Be(expected);
         }
 
-        public string ParseMinute(string schedule) =>
+        private string ParseMinute(string schedule) =>
             schedule switch
             {
-                var s when R(s, @"[6][0-9]", out var _) => "Didn't match at all",
+                var s when R(s, @"[6][0-9]", out _) => "Didn't match at all",
                 var s when R(s, @"[1-5]?[0-9]", out var atMinute) => $"At minute {atMinute.Captures[0].Value}",
-                var s when R(s, @"[*]", out var _) => "Every minute",
+                var s when R(s, @"[*]", out _) => "Every minute",
                 _ => "Didn't match at all"
             };
 
         private bool R(string input, string pattern, out Match match)
             => (match = Regex.Match(input, pattern)).Success;
     }
-    
-    
 }

@@ -1,6 +1,7 @@
-namespace Late4Train.CronTimer.Tests
+namespace Late4dTrain.CronTimer.Tests
 {
     using Cronos;
+    using Late4dTrain.CronTimer;
     using Xunit;
 
     public class CronTimerTests
