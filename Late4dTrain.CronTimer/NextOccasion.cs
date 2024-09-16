@@ -1,7 +1,7 @@
-﻿namespace Late4Train.CronTimer
-{
-    using System;
+﻿using System;
 
+namespace Late4dTrain.CronTimer
+{
     internal class NextOccasion
     {
         public DateTime? NextUtc { get; set; }

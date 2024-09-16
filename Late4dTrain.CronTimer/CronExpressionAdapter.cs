@@ -1,8 +1,7 @@
-﻿namespace Late4Train.CronTimer
-{
-    using System;
-    using Cronos;
+﻿using System;
 
+namespace Late4dTrain.CronTimer
+{
     internal class CronExpressionAdapter
     {
         public Guid CronId { get; set; }

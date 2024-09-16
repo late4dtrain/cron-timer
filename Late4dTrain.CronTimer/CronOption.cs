@@ -1,7 +1,7 @@
-﻿namespace Late4Train.CronTimer
-{
-    using System.Collections.Generic;
+﻿using System.Collections.Generic;
 
+namespace Late4dTrain.CronTimer
+{
     public class CronOption
     {
         public List<CronTab> Expressions = new List<CronTab>();
