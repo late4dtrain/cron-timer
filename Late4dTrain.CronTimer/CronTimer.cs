@@ -9,19 +9,19 @@ namespace Late4dTrain.CronTimer
     public class CronTimer : ICronTimer, IDisposable
     {
         private readonly CronOption _cronOption = new CronOption();
-        private readonly CronExpressionAdapter[] _expressions;
-        private CancellationTokenSource _cancellationTokenSource;
-        private NextOccasion _nextOccasion;
-        private (TimeSpan elapse, CronResult result) _nextRun;
-        public EventHandler<CronEventArgs> TriggeredEventHandler;
-
         private readonly ITimeProvider _timeProvider;
         private readonly IDelayProvider _delayProvider;
+        private readonly object _stateLock = new object();
 
-        private int? _executionTimes;
-        private bool HasNextExecution => _executionTimes.HasValue && _executionTimes.Value > 0;
+        private bool _isRunning;
+        private CancellationTokenSource _cancellationTokenSource;
+        private Task _task;
 
-        public (TimeSpan elapse, CronResult result) NextRun => _nextRun;
+        private CronExpressionAdapter[] _expressions;
+        private NextOccasion _nextOccasion;
+        private (bool hasNext, TimeSpan elapse) _nextRun;
+
+        public event EventHandler<CronEventArgs> TriggeredEventHandler;
 
         public CronTimer(Action<CronOption> action, ITimeProvider timeProvider = null,
             IDelayProvider delayProvider = null)
@@ -38,82 +38,139 @@ namespace Late4dTrain.CronTimer
             _delayProvider = delayProvider ?? new SystemDelayProvider();
         }
 
-        private bool HasNext => _nextRun.result == CronResult.Success;
-
         public void Start(CancellationToken cancellationToken, int? executionTimes = null)
         {
-            _cancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            _executionTimes = executionTimes;
+            lock (_stateLock)
+            {
+                if (_isRunning)
+                    return; // Timer is already running
 
-            _nextRun = GetNextTimeElapse();
-            Task.Run(() => RunAsync(_cancellationTokenSource.Token));
+                _isRunning = true;
+                _cancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+
+                _task = Task.Run(async () =>
+                {
+                    while (true)
+                    {
+                        if (!_isRunning)
+                            break;
+
+                        _nextRun = GetNextTimeElapse();
+
+                        if (!_nextRun.hasNext)
+                        {
+                            _isRunning = false;
+                            break;
+                        }
+
+                        await RunOnceAsync();
+                        if (executionTimes != null && --executionTimes <= 0)
+                        {
+                            _isRunning = false;
+                            break;
+                        }
+                    }
+                }, _cancellationTokenSource.Token);
+            }
         }
 
         public void Stop()
         {
-            _cancellationTokenSource.Cancel();
-            _nextRun = (default, CronResult.Fail);
-            Dispose();
+            lock (_stateLock)
+            {
+                if (!_isRunning)
+                    return; // Timer is already stopped
+
+                _isRunning = false;
+                _cancellationTokenSource.Cancel();
+                _cancellationTokenSource.Dispose();
+                _cancellationTokenSource = null;
+            }
         }
 
-        private (TimeSpan elapse, CronResult result) GetNextTimeElapse()
+        private (bool hasNext, TimeSpan elapse) GetNextTimeElapse()
         {
-            var dtNow = _timeProvider.UtcNow;
-            var now = new DateTime(dtNow.Year, dtNow.Month, dtNow.Day, dtNow.Hour, dtNow.Minute, dtNow.Second,
-                DateTimeKind.Utc);
-            _nextOccasion = _expressions.OrderBy(e => e.Expression.GetNextOccurrence(now)).Select(e =>
-                new NextOccasion
+            lock (_stateLock)
+            {
+                _nextOccasion = GetNextOccasion();
+
+                if (_nextOccasion.NextUtc == null)
+                    return (false, TimeSpan.Zero);
+
+                var delay = _nextOccasion.NextUtc.Value - _timeProvider.UtcNow;
+                return (true, delay > TimeSpan.Zero ? delay : TimeSpan.Zero);
+            }
+        }
+
+        private NextOccasion GetNextOccasion()
+        {
+            DateTime? nextUtc = null;
+            Guid cronId = Guid.Empty;
+            string cronExpression = null;
+
+            foreach (var expression in _expressions)
+            {
+                var occurrence = expression.Expression.GetNextOccurrence(_timeProvider.UtcNow);
+                if (occurrence.HasValue && (nextUtc == null || occurrence < nextUtc))
                 {
-                    CronId = e.CronId,
-                    NextUtc = e.Expression.GetNextOccurrence(now),
-                    CronExpression = e.CronExpression
-                }).FirstOrDefault();
-            return _nextOccasion?.NextUtc != null
-                ? (_nextOccasion.NextUtc.GetValueOrDefault() - now, CronResult.Success)
-                : (default, CronResult.Fail);
+                    nextUtc = occurrence;
+                    cronId = expression.CronId;
+                    cronExpression = expression.CronExpression;
+                }
+            }
+
+            return new NextOccasion
+            {
+                NextUtc = nextUtc,
+                CronId = cronId,
+                CronExpression = cronExpression
+            };
         }
 
         private async Task RunOnceAsync()
         {
-            if (HasNext && !_cancellationTokenSource.Token.IsCancellationRequested)
+            try
             {
-                try
+                var delay = _nextRun.elapse;
+
+                if (delay > TimeSpan.Zero)
                 {
-                    await _delayProvider.Delay(_nextRun.elapse, _cancellationTokenSource.Token);
-
-                    var triggeredTime = _nextOccasion.NextUtc.GetValueOrDefault();
-
-                    TriggeredEventHandler?.Invoke(this,
-                        new CronEventArgs(_cancellationTokenSource.Token, _nextOccasion.CronId,
-                            _nextOccasion.CronExpression, triggeredTime));
-
-                    _nextRun = GetNextTimeElapse();
+                    await _delayProvider.Delay(delay, _cancellationTokenSource.Token);
                 }
-                catch (TaskCanceledException)
-                {
-                    // Handle cancellation
-                }
+
+                var triggeredTime = _nextOccasion.NextUtc.GetValueOrDefault();
+
+                TriggeredEventHandler?
+                    .Invoke(this, new CronEventArgs(_cancellationTokenSource.Token, _nextOccasion.CronId,
+                        _nextOccasion.CronExpression, triggeredTime));
+
+                _nextRun = GetNextTimeElapse();
             }
-        }
-
-        private async Task RunAsync(CancellationToken cancellationToken)
-        {
-            while (HasNext
-                   && !cancellationToken.IsCancellationRequested
-                   && HasNextExecution)
+            catch (OperationCanceledException)
             {
-                await RunOnceAsync();
-                if (_executionTimes.HasValue)
-                {
-                    _executionTimes--;
-                }
+                // Handle cancellation
+            }
+            catch (ObjectDisposedException)
+            {
+                // Handle disposal
             }
         }
 
         public void Dispose()
         {
-            _cancellationTokenSource?.Dispose();
-            TriggeredEventHandler = null;
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                Stop();
+                _cancellationTokenSource?.Dispose();
+                _task = null;
+                TriggeredEventHandler = null;
+            }
         }
     }
 }
