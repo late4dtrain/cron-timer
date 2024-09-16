@@ -1,6 +1,6 @@
 ﻿namespace Late4dTrain.CronTimer
 {
-    internal enum CronResult
+    public enum CronResult
     {
         None,
         Success,
