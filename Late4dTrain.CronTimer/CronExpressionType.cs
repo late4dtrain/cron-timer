@@ -6,8 +6,8 @@ namespace Late4dTrain.CronTimer
     public enum CronExpressionType
     {
         None = 0,
-
-        WithSeconds = 1
+        Standard = 1,
+        IncludeSeconds = 2,
     }
 
     public static class CronExpressionTypeExtensions

@@ -12,7 +12,7 @@ public class CronTimeTests
         // Arrange
         var events = new List<DateTime>();
         var cronExpression = "*/5 * * * * *"; // Every 5 seconds
-        var format = CronExpressionType.WithSeconds;
+        var format = CronExpressionType.IncludeSeconds;
         var startTime = new DateTime(2023, 10, 1, 0, 0, 0, DateTimeKind.Utc);
 
         // Create a substitute for ITimeProvider

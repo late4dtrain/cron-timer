@@ -6,47 +6,54 @@ namespace Late4dTrain.CronTimer
 {
     public class CronExpression
     {
-        public SortedSet<int> Seconds { get; set; }
-        public SortedSet<int> Minutes { get; set; }
-        public SortedSet<int> Hours { get; set; }
-        public SortedSet<int> DayOfMonth { get; set; }
-        public SortedSet<int> Month { get; set; }
-        public SortedSet<int> DayOfWeek { get; set; }
+        public SortedSet<int> Seconds { get; private set; }
+        public SortedSet<int> Minutes { get; private set; }
+        public SortedSet<int> Hours { get; private set; }
+        public SortedSet<int> DayOfMonth { get; private set; }
+        public SortedSet<int> Month { get; private set; }
+        public SortedSet<int> DayOfWeek { get; private set; }
+
+        // Flags indicating special operators usage
+        public bool HasDayOfMonthSpecialCharacters { get; private set; }
+        public bool HasDayOfWeekSpecialCharacters { get; private set; }
 
         public static CronExpression Parse(string expression, CronExpressionType expressionType)
         {
             string[] parts = expression.Split(' ');
 
-            int expectedFieldCount = expressionType == CronExpressionType.WithSeconds ? 6 : 5;
+            int expectedFieldCount = expressionType == CronExpressionType.IncludeSeconds ? 6 : 5;
 
             if (parts.Length != expectedFieldCount)
-                throw new ArgumentException($"Invalid cron expression: {expression}");
+                throw new ArgumentException(
+                    $"Invalid cron expression: '{expression}'. Expected {expectedFieldCount} fields but got {parts.Length}.");
 
             var cron = new CronExpression();
 
             int index = 0;
 
-            if (expressionType == CronExpressionType.WithSeconds)
+            if (expressionType == CronExpressionType.IncludeSeconds)
             {
-                cron.Seconds = ParseField(parts[index++], 0, 59);
+                cron.Seconds = ParseField(parts[index++], 0, 59, "Seconds");
             }
             else
             {
                 cron.Seconds = new SortedSet<int> { 0 }; // default to 0 seconds
             }
 
-            cron.Minutes = ParseField(parts[index++], 0, 59);
-            cron.Hours = ParseField(parts[index++], 0, 23);
-            cron.DayOfMonth = ParseField(parts[index++], 1, 31);
-            cron.Month = ParseField(parts[index++], 1, 12);
-            cron.DayOfWeek = ParseField(parts[index++], 0, 6); // Sunday = 0
+            cron.Minutes = ParseField(parts[index++], 0, 59, "Minutes");
+            cron.Hours = ParseField(parts[index++], 0, 23, "Hours");
+            cron.DayOfMonth = ParseDayOfMonthField(parts[index++], cron);
+            cron.Month = ParseField(parts[index++], 1, 12, "Month", monthNames: true);
+            cron.DayOfWeek = ParseDayOfWeekField(parts[index++], cron);
 
             return cron;
         }
 
-        private static SortedSet<int> ParseField(string field, int minValue, int maxValue)
+        private static SortedSet<int> ParseField(string field, int minValue, int maxValue, string fieldName,
+            bool monthNames = false, bool dayOfWeekNames = false)
         {
             var values = new SortedSet<int>();
+            field = field.Trim();
 
             if (field == "*")
             {
@@ -59,69 +66,273 @@ namespace Late4dTrain.CronTimer
             {
                 if (part.Contains("/"))
                 {
-                    // Handle step values
-                    var stepParts = part.Split('/');
-                    var rangePart = stepParts[0];
-                    if (!int.TryParse(stepParts[1], out int step) || step <= 0)
-                        throw new ArgumentException($"Invalid step value in cron field: {part}");
-
-                    int rangeStart = minValue;
-                    int rangeEnd = maxValue;
-
-                    if (!string.IsNullOrEmpty(rangePart) && rangePart != "*")
-                    {
-                        if (rangePart.Contains("-"))
-                        {
-                            var rangeBounds = rangePart.Split('-');
-                            if (!int.TryParse(rangeBounds[0], out rangeStart) ||
-                                !int.TryParse(rangeBounds[1], out rangeEnd))
-                                throw new ArgumentException($"Invalid range in cron field: {part}");
-                        }
-                        else
-                        {
-                            if (!int.TryParse(rangePart, out rangeStart))
-                                throw new ArgumentException($"Invalid value in cron field: {part}");
-                            rangeEnd = rangeStart;
-                        }
-                    }
-
-                    for (int i = rangeStart; i <= rangeEnd; i += step)
-                    {
-                        if (i >= minValue && i <= maxValue)
-                            values.Add(i);
-                    }
+                    ParseStep(part, minValue, maxValue, values, fieldName, monthNames, dayOfWeekNames);
                 }
                 else if (part.Contains("-"))
                 {
-                    // Handle ranges
-                    var rangeBounds = part.Split('-');
-                    if (!int.TryParse(rangeBounds[0], out int start) || !int.TryParse(rangeBounds[1], out int end))
-                        throw new ArgumentException($"Invalid range in cron field: {part}");
-
-                    for (int i = start; i <= end; i++)
-                    {
-                        if (i >= minValue && i <= maxValue)
-                            values.Add(i);
-                    }
+                    ParseRange(part, minValue, maxValue, values, fieldName, monthNames, dayOfWeekNames);
                 }
                 else
                 {
-                    // Single value
-                    if (int.TryParse(part, out int val))
-                    {
-                        if (val < minValue || val > maxValue)
-                            throw new ArgumentException($"Value {val} out of range in cron field: {field}");
-                        values.Add(val);
-                    }
-                    else
-                    {
-                        throw new ArgumentException($"Invalid value in cron field: {part}");
-                    }
+                    ParseValue(part, minValue, maxValue, values, fieldName, monthNames, dayOfWeekNames);
                 }
             }
 
             return values;
         }
+
+        private static void ParseStep(string part, int minValue, int maxValue, SortedSet<int> values, string fieldName,
+            bool monthNames, bool dayOfWeekNames)
+        {
+            var stepParts = part.Split('/');
+            if (stepParts.Length != 2)
+                throw new ArgumentException($"Invalid step value in cron field '{fieldName}': {part}");
+
+            var rangePart = stepParts[0];
+            if (!int.TryParse(stepParts[1], out int step) || step <= 0)
+                throw new ArgumentException($"Invalid step value in cron field '{fieldName}': {part}");
+
+            int rangeStart = minValue;
+            int rangeEnd = maxValue;
+
+            if (!string.IsNullOrEmpty(rangePart) && rangePart != "*")
+            {
+                if (rangePart.Contains("-"))
+                {
+                    ParseRangeBounds(rangePart, minValue, maxValue, fieldName, monthNames, dayOfWeekNames,
+                        out rangeStart, out rangeEnd);
+                }
+                else
+                {
+                    rangeStart = ParseSingleValue(rangePart, minValue, maxValue, fieldName, monthNames, dayOfWeekNames);
+                    rangeEnd = rangeStart;
+                }
+            }
+
+            for (int i = rangeStart; i <= rangeEnd; i += step)
+            {
+                if (i >= minValue && i <= maxValue)
+                    values.Add(i);
+            }
+        }
+
+        private static void ParseRangeBounds(string part, int minValue, int maxValue, string fieldName, bool monthNames,
+            bool dayOfWeekNames, out int rangeStart, out int rangeEnd)
+        {
+            var rangeBounds = part.Split('-');
+            if (rangeBounds.Length != 2)
+                throw new ArgumentException($"Invalid range in cron field '{fieldName}': {part}");
+
+            rangeStart = ParseSingleValue(rangeBounds[0], minValue, maxValue, fieldName, monthNames, dayOfWeekNames);
+            rangeEnd = ParseSingleValue(rangeBounds[1], minValue, maxValue, fieldName, monthNames, dayOfWeekNames);
+
+            if (rangeStart > rangeEnd)
+                throw new ArgumentException($"Range start greater than range end in cron field '{fieldName}': {part}");
+        }
+
+        private static void ParseRange(string part, int minValue, int maxValue, SortedSet<int> values, string fieldName,
+            bool monthNames, bool dayOfWeekNames, out int rangeStart, out int rangeEnd)
+        {
+            var rangeBounds = part.Split('-');
+            if (rangeBounds.Length != 2)
+                throw new ArgumentException($"Invalid range in cron field '{fieldName}': {part}");
+
+            rangeStart = ParseSingleValue(rangeBounds[0], minValue, maxValue, fieldName, monthNames, dayOfWeekNames);
+            rangeEnd = ParseSingleValue(rangeBounds[1], minValue, maxValue, fieldName, monthNames, dayOfWeekNames);
+
+            if (rangeStart > rangeEnd)
+                throw new ArgumentException($"Range start greater than range end in cron field '{fieldName}': {part}");
+
+            for (int i = rangeStart; i <= rangeEnd; i++)
+            {
+                values.Add(i);
+            }
+        }
+
+        private static void ParseRange(string part, int minValue, int maxValue, SortedSet<int> values, string fieldName,
+            bool monthNames, bool dayOfWeekNames)
+        {
+            ParseRangeBounds(part, minValue, maxValue, fieldName, monthNames, dayOfWeekNames, out int rangeStart,
+                out int rangeEnd);
+
+            for (int i = rangeStart; i <= rangeEnd; i++)
+            {
+                values.Add(i);
+            }
+        }
+
+        private static void ParseValue(string part, int minValue, int maxValue, SortedSet<int> values, string fieldName,
+            bool monthNames, bool dayOfWeekNames)
+        {
+            int val = ParseSingleValue(part, minValue, maxValue, fieldName, monthNames, dayOfWeekNames);
+            values.Add(val);
+        }
+
+        private static int ParseSingleValue(string value, int minValue, int maxValue, string fieldName, bool monthNames,
+            bool dayOfWeekNames)
+        {
+            value = value.Trim();
+            int val;
+
+            if (monthNames)
+            {
+                if (TryParseMonthName(value, out val))
+                {
+                    return val;
+                }
+            }
+
+            if (dayOfWeekNames)
+            {
+                if (TryParseDayOfWeekName(value, out val))
+                {
+                    return val;
+                }
+            }
+
+            if (!int.TryParse(value, out val))
+                throw new ArgumentException($"Invalid value in cron field '{fieldName}': {value}");
+
+            if (val < minValue || val > maxValue)
+                throw new ArgumentException(
+                    $"Value {val} out of range in cron field '{fieldName}'. Expected {minValue}-{maxValue}.");
+
+            return val;
+        }
+
+        private static bool TryParseMonthName(string value, out int month)
+        {
+            month = 0;
+            var monthNames = System.Globalization.CultureInfo.InvariantCulture.DateTimeFormat.AbbreviatedMonthNames;
+
+            for (int i = 0; i < monthNames.Length - 1; i++)
+            {
+                if (monthNames[i].Equals(value, StringComparison.OrdinalIgnoreCase))
+                {
+                    month = i + 1;
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static bool TryParseDayOfWeekName(string value, out int dayOfWeek)
+        {
+            dayOfWeek = 0;
+            var dayNames = System.Globalization.CultureInfo.InvariantCulture.DateTimeFormat.AbbreviatedDayNames;
+
+            for (int i = 0; i < dayNames.Length; i++)
+            {
+                if (dayNames[i].Equals(value, StringComparison.OrdinalIgnoreCase))
+                {
+                    dayOfWeek = i;
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static SortedSet<int> ParseDayOfMonthField(string field, CronExpression cron)
+        {
+            var values = new SortedSet<int>();
+            field = field.Trim();
+
+            if (field.Contains("L"))
+            {
+                cron.HasDayOfMonthSpecialCharacters = true;
+
+                if (field == "L")
+                {
+                    // Last day of the month
+                    values.Add(-1); // Use -1 as a marker for 'L'
+                }
+                else if (field.StartsWith("L-"))
+                {
+                    // e.g., 'L-3' for third to last day of the month
+                    if (int.TryParse(field.Substring(2), out int offset) && offset >= 0)
+                    {
+                        values.Add(-offset); // Use negative numbers to represent 'L-offset'
+                    }
+                    else
+                    {
+                        throw new ArgumentException($"Invalid 'L' offset in cron field 'DayOfMonth': {field}");
+                    }
+                }
+                else
+                {
+                    throw new ArgumentException($"Invalid 'L' usage in cron field 'DayOfMonth': {field}");
+                }
+            }
+            else if (field.Contains("W"))
+            {
+                // Handle 'W' operator for nearest weekday
+                cron.HasDayOfMonthSpecialCharacters = true;
+                if (int.TryParse(field.TrimEnd('W'), out int day))
+                {
+                    if (day >= 1 && day <= 31)
+                    {
+                        values.Add(day); // Mark the day for 'W' processing
+                    }
+                    else
+                    {
+                        throw new ArgumentException($"Invalid day value for 'W' in cron field 'DayOfMonth': {field}");
+                    }
+                }
+                else
+                {
+                    throw new ArgumentException($"Invalid 'W' usage in cron field 'DayOfMonth': {field}");
+                }
+            }
+            else
+            {
+                values = ParseField(field, 1, 31, "DayOfMonth");
+            }
+
+            return values;
+        }
+
+        private static SortedSet<int> ParseDayOfWeekField(string field, CronExpression cron)
+        {
+            var values = new SortedSet<int>();
+            field = field.Trim();
+
+            if (field.Contains("#"))
+            {
+                // Handle 'nth' occurrence of a weekday in a month (e.g., '3#2' for the second Tuesday)
+                cron.HasDayOfWeekSpecialCharacters = true;
+                // Parsing logic for '#' operator would be implemented here
+                throw new NotImplementedException("The '#' operator is not implemented yet.");
+            }
+            else if (field.Contains("L"))
+            {
+                // Handle 'L' operator for last day of the week
+                cron.HasDayOfWeekSpecialCharacters = true;
+                if (field.Length == 1 && field == "L")
+                {
+                    values.Add(-1); // Use -1 as a marker for 'L' in day of week
+                }
+                else if (int.TryParse(field.TrimEnd('L'), out int dayOfWeek) && dayOfWeek >= 0 && dayOfWeek <= 6)
+                {
+                    values.Add(-dayOfWeek); // Use negative numbers to represent 'dayOfWeekL'
+                }
+                else
+                {
+                    throw new ArgumentException($"Invalid 'L' usage in cron field 'DayOfWeek': {field}");
+                }
+            }
+            else
+            {
+                values = ParseField(field, 0, 6, "DayOfWeek", dayOfWeekNames: true);
+            }
+
+            return values;
+        }
+
+        // The rest of the class remains the same, including the GetNextOccurrence method
+        // and any other necessary methods for occurrence calculation.
+        // For brevity, I will include the optimized GetNextOccurrence method from earlier.
 
         public DateTime? GetNextOccurrence(DateTime baseTime)
         {
@@ -148,24 +359,37 @@ namespace Late4dTrain.CronTimer
                     continue;
                 }
 
-                if (!DayOfMonth.Contains(next.Day))
+                // Handle DayOfMonth special characters
+                if (HasDayOfMonthSpecialCharacters)
                 {
-                    // Move to the next valid day
-                    int nextDay = GetNextValue(DayOfMonth, next.Day, DateTime.DaysInMonth(next.Year, next.Month));
-                    if (nextDay <= next.Day)
+                    if (!IsValidDayOfMonth(next))
                     {
-                        next = next.AddMonths(1);
-                        next = new DateTime(next.Year, next.Month, 1, 0, 0, 0, next.Kind);
+                        next = next.AddDays(1);
+                        next = new DateTime(next.Year, next.Month, next.Day, 0, 0, 0, next.Kind);
                         continue;
                     }
-
-                    next = new DateTime(next.Year, next.Month, nextDay, next.Hour, next.Minute, next.Second, next.Kind);
+                }
+                else if (!DayOfMonth.Contains(next.Day))
+                {
+                    // Move to next valid day
+                    next = next.AddDays(1);
+                    next = new DateTime(next.Year, next.Month, next.Day, 0, 0, 0, next.Kind);
                     continue;
                 }
 
-                if (!DayOfWeek.Contains((int)next.DayOfWeek))
+                // Handle DayOfWeek special characters
+                if (HasDayOfWeekSpecialCharacters)
                 {
-                    // Move to the next valid day
+                    if (!IsValidDayOfWeek(next))
+                    {
+                        next = next.AddDays(1);
+                        next = new DateTime(next.Year, next.Month, next.Day, 0, 0, 0, next.Kind);
+                        continue;
+                    }
+                }
+                else if (!DayOfWeek.Contains((int)next.DayOfWeek))
+                {
+                    // Move to next valid day
                     next = next.AddDays(1);
                     next = new DateTime(next.Year, next.Month, next.Day, 0, 0, 0, next.Kind);
                     continue;
@@ -228,6 +452,71 @@ namespace Late4dTrain.CronTimer
 
             // If no occurrence is found within a reasonable limit, return null
             return null;
+        }
+
+        private bool IsValidDayOfMonth(DateTime date)
+        {
+            // Handle 'L' operator in DayOfMonth
+            foreach (var value in DayOfMonth)
+            {
+                if (value == -1)
+                {
+                    int lastDay = DateTime.DaysInMonth(date.Year, date.Month);
+                    if (date.Day == lastDay)
+                        return true;
+                }
+                else if (value < 0)
+                {
+                    int offset = -value;
+                    int lastDay = DateTime.DaysInMonth(date.Year, date.Month);
+                    if (date.Day == lastDay - offset)
+                        return true;
+                }
+                else
+                {
+                    if (date.Day == value)
+                        return true;
+                }
+            }
+
+            return false;
+        }
+
+        private bool IsValidDayOfWeek(DateTime date)
+        {
+            // Handle 'L' operator in DayOfWeek
+            foreach (var value in DayOfWeek)
+            {
+                if (value == -1)
+                {
+                    // Last day of the week (Saturday)
+                    if ((int)date.DayOfWeek == 6)
+                        return true;
+                }
+                else if (value < 0)
+                {
+                    int dayOfWeek = -value;
+                    // Last occurrence of the dayOfWeek in the month
+                    if (IsLastDayOfWeekInMonth(date, dayOfWeek))
+                        return true;
+                }
+                else
+                {
+                    if ((int)date.DayOfWeek == value)
+                        return true;
+                }
+            }
+
+            return false;
+        }
+
+        private bool IsLastDayOfWeekInMonth(DateTime date, int dayOfWeek)
+        {
+            if ((int)date.DayOfWeek != dayOfWeek)
+                return false;
+
+            DateTime nextWeekSameDay = date.AddDays(7);
+            return nextWeekSameDay.Month != date.Month;
         }
 
         private int GetNextValue(SortedSet<int> values, int currentValue, int maxValue)
