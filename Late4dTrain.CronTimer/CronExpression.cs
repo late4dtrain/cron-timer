@@ -6,12 +6,12 @@ namespace Late4dTrain.CronTimer
 {
     public class CronExpression
     {
-        public List<int> Seconds { get; set; }
-        public List<int> Minutes { get; set; }
-        public List<int> Hours { get; set; }
-        public List<int> DayOfMonth { get; set; }
-        public List<int> Month { get; set; }
-        public List<int> DayOfWeek { get; set; }
+        public SortedSet<int> Seconds { get; set; }
+        public SortedSet<int> Minutes { get; set; }
+        public SortedSet<int> Hours { get; set; }
+        public SortedSet<int> DayOfMonth { get; set; }
+        public SortedSet<int> Month { get; set; }
+        public SortedSet<int> DayOfWeek { get; set; }
 
         public static CronExpression Parse(string expression, CronExpressionType expressionType)
         {
@@ -22,7 +22,7 @@ namespace Late4dTrain.CronTimer
             if (parts.Length != expectedFieldCount)
                 throw new ArgumentException($"Invalid cron expression: {expression}");
 
-            CronExpression cron = new CronExpression();
+            var cron = new CronExpression();
 
             int index = 0;
 
@@ -32,7 +32,7 @@ namespace Late4dTrain.CronTimer
             }
             else
             {
-                cron.Seconds = new List<int> { 0 }; // default to 0 seconds
+                cron.Seconds = new SortedSet<int> { 0 }; // default to 0 seconds
             }
 
             cron.Minutes = ParseField(parts[index++], 0, 59);
@@ -44,20 +44,26 @@ namespace Late4dTrain.CronTimer
             return cron;
         }
 
-        private static List<int> ParseField(string field, int minValue, int maxValue)
+        private static SortedSet<int> ParseField(string field, int minValue, int maxValue)
         {
-            List<int> values = new List<int>();
+            var values = new SortedSet<int>();
 
-            string[] parts = field.Split(',');
+            if (field == "*")
+            {
+                values.UnionWith(Enumerable.Range(minValue, maxValue - minValue + 1));
+                return values;
+            }
 
-            foreach (string part in parts)
+            var parts = field.Split(',');
+            foreach (var part in parts)
             {
                 if (part.Contains("/"))
                 {
-                    // Step values
-                    string[] stepParts = part.Split('/');
-                    string rangePart = stepParts[0];
-                    int step = int.Parse(stepParts[1]);
+                    // Handle step values
+                    var stepParts = part.Split('/');
+                    var rangePart = stepParts[0];
+                    if (!int.TryParse(stepParts[1], out int step) || step <= 0)
+                        throw new ArgumentException($"Invalid step value in cron field: {part}");
 
                     int rangeStart = minValue;
                     int rangeEnd = maxValue;
@@ -66,64 +72,52 @@ namespace Late4dTrain.CronTimer
                     {
                         if (rangePart.Contains("-"))
                         {
-                            string[] rangeBounds = rangePart.Split('-');
-                            rangeStart = int.Parse(rangeBounds[0]);
-                            rangeEnd = int.Parse(rangeBounds[1]);
+                            var rangeBounds = rangePart.Split('-');
+                            if (!int.TryParse(rangeBounds[0], out rangeStart) ||
+                                !int.TryParse(rangeBounds[1], out rangeEnd))
+                                throw new ArgumentException($"Invalid range in cron field: {part}");
                         }
                         else
                         {
-                            rangeStart = int.Parse(rangePart);
-                            rangeEnd = int.Parse(rangePart);
+                            if (!int.TryParse(rangePart, out rangeStart))
+                                throw new ArgumentException($"Invalid value in cron field: {part}");
+                            rangeEnd = rangeStart;
                         }
                     }
 
-                    for (int i = rangeStart; i <= rangeEnd; i++)
+                    for (int i = rangeStart; i <= rangeEnd; i += step)
                     {
-                        if ((i - rangeStart) % step == 0)
-                        {
+                        if (i >= minValue && i <= maxValue)
                             values.Add(i);
-                        }
+                    }
+                }
+                else if (part.Contains("-"))
+                {
+                    // Handle ranges
+                    var rangeBounds = part.Split('-');
+                    if (!int.TryParse(rangeBounds[0], out int start) || !int.TryParse(rangeBounds[1], out int end))
+                        throw new ArgumentException($"Invalid range in cron field: {part}");
+
+                    for (int i = start; i <= end; i++)
+                    {
+                        if (i >= minValue && i <= maxValue)
+                            values.Add(i);
                     }
                 }
                 else
                 {
-                    // Range or single value
-                    List<int> rangeValues = ParseRange(part, minValue, maxValue);
-                    values.AddRange(rangeValues);
+                    // Single value
+                    if (int.TryParse(part, out int val))
+                    {
+                        if (val < minValue || val > maxValue)
+                            throw new ArgumentException($"Value {val} out of range in cron field: {field}");
+                        values.Add(val);
+                    }
+                    else
+                    {
+                        throw new ArgumentException($"Invalid value in cron field: {part}");
+                    }
                 }
-            }
-
-            // Remove duplicates and sort
-            values = values.Distinct().OrderBy(x => x).ToList();
-
-            return values;
-        }
-
-        private static List<int> ParseRange(string rangePart, int minValue, int maxValue)
-        {
-            List<int> values = new List<int>();
-
-            if (rangePart == "*")
-            {
-                for (int i = minValue; i <= maxValue; i++)
-                    values.Add(i);
-            }
-            else if (rangePart.Contains("-"))
-            {
-                string[] rangeBounds = rangePart.Split('-');
-                int start = int.Parse(rangeBounds[0]);
-                int end = int.Parse(rangeBounds[1]);
-
-                for (int i = start; i <= end; i++)
-                {
-                    values.Add(i);
-                }
-            }
-            else
-            {
-                // Single value
-                int val = int.Parse(rangePart);
-                values.Add(val);
             }
 
             return values;
@@ -133,9 +127,7 @@ namespace Late4dTrain.CronTimer
         {
             DateTime next = baseTime;
 
-            bool hasSeconds = Seconds != null && Seconds.Count > 0 && !(Seconds.Count == 1 && Seconds[0] == 0);
-
-            if (hasSeconds)
+            if (Seconds != null && Seconds.Count > 0 && !(Seconds.Count == 1 && Seconds.Contains(0)))
             {
                 next = next.AddSeconds(1);
             }
@@ -145,54 +137,110 @@ namespace Late4dTrain.CronTimer
                 next = new DateTime(next.Year, next.Month, next.Day, next.Hour, next.Minute, 0, next.Kind);
             }
 
-            while (true)
+            for (int i = 0; i < 100000; i++) // Safety limit to prevent infinite loops
             {
-                if (Month.Contains(next.Month))
+                if (!Month.Contains(next.Month))
                 {
-                    if (DayOfMonth.Contains(next.Day))
-                    {
-                        if (DayOfWeek.Contains((int)next.DayOfWeek))
-                        {
-                            if (Hours.Contains(next.Hour))
-                            {
-                                if (Minutes.Contains(next.Minute))
-                                {
-                                    if (hasSeconds)
-                                    {
-                                        if (Seconds.Contains(next.Second))
-                                        {
-                                            // Found matching time
-                                            return next;
-                                        }
-                                    }
-                                    else
-                                    {
-                                        // Found matching time
-                                        return next;
-                                    }
-                                }
-                            }
-                        }
-                    }
+                    // Move to the next valid month
+                    int nextMonth = GetNextValue(Month, next.Month, 12);
+                    int yearsToAdd = nextMonth <= next.Month ? 1 : 0;
+                    next = new DateTime(next.Year + yearsToAdd, nextMonth, 1, 0, 0, 0, next.Kind);
+                    continue;
                 }
 
-                // Increment time
-                if (hasSeconds)
+                if (!DayOfMonth.Contains(next.Day))
                 {
-                    next = next.AddSeconds(1);
+                    // Move to the next valid day
+                    int nextDay = GetNextValue(DayOfMonth, next.Day, DateTime.DaysInMonth(next.Year, next.Month));
+                    if (nextDay <= next.Day)
+                    {
+                        next = next.AddMonths(1);
+                        next = new DateTime(next.Year, next.Month, 1, 0, 0, 0, next.Kind);
+                        continue;
+                    }
+
+                    next = new DateTime(next.Year, next.Month, nextDay, next.Hour, next.Minute, next.Second, next.Kind);
+                    continue;
+                }
+
+                if (!DayOfWeek.Contains((int)next.DayOfWeek))
+                {
+                    // Move to the next valid day
+                    next = next.AddDays(1);
+                    next = new DateTime(next.Year, next.Month, next.Day, 0, 0, 0, next.Kind);
+                    continue;
+                }
+
+                if (!Hours.Contains(next.Hour))
+                {
+                    // Move to the next valid hour
+                    int nextHour = GetNextValue(Hours, next.Hour, 24);
+                    if (nextHour <= next.Hour)
+                    {
+                        next = next.AddDays(1);
+                    }
+
+                    next = new DateTime(next.Year, next.Month, next.Day, nextHour, 0, 0, next.Kind);
+                    continue;
+                }
+
+                if (!Minutes.Contains(next.Minute))
+                {
+                    // Move to the next valid minute
+                    int nextMinute = GetNextValue(Minutes, next.Minute, 60);
+                    if (nextMinute <= next.Minute)
+                    {
+                        next = next.AddHours(1);
+                        next = new DateTime(next.Year, next.Month, next.Day, next.Hour, 0, 0, next.Kind);
+                        continue;
+                    }
+
+                    next = new DateTime(next.Year, next.Month, next.Day, next.Hour, nextMinute, 0, next.Kind);
+                    continue;
+                }
+
+                if (Seconds != null && Seconds.Count > 0)
+                {
+                    if (!Seconds.Contains(next.Second))
+                    {
+                        // Move to the next valid second
+                        int nextSecond = GetNextValue(Seconds, next.Second, 60);
+                        if (nextSecond <= next.Second)
+                        {
+                            next = next.AddMinutes(1);
+                            next = new DateTime(next.Year, next.Month, next.Day, next.Hour, next.Minute, 0, next.Kind);
+                            continue;
+                        }
+
+                        next = new DateTime(next.Year, next.Month, next.Day, next.Hour, next.Minute, nextSecond,
+                            next.Kind);
+                        continue;
+                    }
                 }
                 else
                 {
-                    next = next.AddMinutes(1);
+                    next = new DateTime(next.Year, next.Month, next.Day, next.Hour, next.Minute, 0, next.Kind);
                 }
 
-                // Prevent infinite loops
-                if ((next - baseTime).TotalDays > 366)
-                {
-                    // No occurrence found within a year
-                    return null;
-                }
+                // All fields match
+                return next;
             }
+
+            // If no occurrence is found within a reasonable limit, return null
+            return null;
+        }
+
+        private int GetNextValue(SortedSet<int> values, int currentValue, int maxValue)
+        {
+            // Try to find the next higher value
+            foreach (var val in values)
+            {
+                if (val > currentValue)
+                    return val;
+            }
+
+            // If not found, wrap around to the first value
+            return values.Min;
         }
     }
 }
