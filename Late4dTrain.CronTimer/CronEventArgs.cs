@@ -1,8 +1,8 @@
-﻿namespace Late4Train.CronTimer
-{
-    using System;
-    using System.Threading;
+﻿using System;
+using System.Threading;
 
+namespace Late4dTrain.CronTimer
+{
     public class CronEventArgs : EventArgs
     {
         public CronEventArgs(CancellationToken cancellationToken, Guid cronId, string cronExpression)

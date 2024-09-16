@@ -1,11 +1,10 @@
-﻿namespace Late4Train.CronTimer
-{
-    using System;
-    using System.Linq;
-    using System.Threading;
-    using System.Threading.Tasks;
-    using Cronos;
+﻿using System;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 
+namespace Late4dTrain.CronTimer
+{
     public class CronTimer : ICronTimer
     {
         private readonly CronOption _cronOption = new CronOption();
@@ -21,7 +20,7 @@
             _expressions = _cronOption.Expressions.Select(e => new CronExpressionAdapter
             {
                 CronId = e.Id,
-                Expression = CronExpression.Parse(e.Expression, e.Format),
+                Expression = CronExpression.Parse(e.Expression, e.ExpressionType),
                 CronExpression = e.Expression
             }).ToArray();
         }
