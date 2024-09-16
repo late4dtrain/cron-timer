@@ -14,6 +14,7 @@ namespace Late4dTrain.CronTimer
         private readonly object _stateLock = new object();
 
         private bool _isRunning;
+        private bool _disposed;
         private CancellationTokenSource _cancellationTokenSource;
         private Task _task;
 
@@ -164,12 +165,34 @@ namespace Late4dTrain.CronTimer
 
         protected virtual void Dispose(bool disposing)
         {
-            if (disposing)
+            lock (_stateLock)
             {
-                Stop();
-                _cancellationTokenSource?.Dispose();
-                _task = null;
-                TriggeredEventHandler = null;
+                if (_disposed)
+                    return;
+
+                if (disposing)
+                {
+                    Stop();
+
+                    if (_task != null)
+                    {
+                        try
+                        {
+                            _task.Wait(); // Ensure the task completes
+                        }
+                        catch (AggregateException ex)
+                        {
+                            // Handle exceptions from the task, if needed
+                        }
+                    }
+
+                    _cancellationTokenSource?.Dispose();
+                    _cancellationTokenSource = null;
+                    _task = null;
+                    TriggeredEventHandler = null;
+                }
+
+                _disposed = true;
             }
         }
     }

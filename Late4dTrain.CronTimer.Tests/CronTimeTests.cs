@@ -90,4 +90,21 @@ public class CronTimeTests
         // No exceptions should occur, and the timer's state should be consistent
         timer.Dispose();
     }
+
+
+    [Fact]
+    public void CronTimer_Should_Not_Throw_When_Stop_Called_After_Dispose()
+    {
+        // Arrange
+        var timer = new CronTimer(options =>
+        {
+            options.AddCronTabs(new CronTab("*/1 * * * * *", CronExpressionType.IncludeSeconds));
+        });
+
+        // Act
+        timer.Dispose();
+
+        // Assert
+        timer.Stop(); // Should not throw any exceptions
+    }
 }
