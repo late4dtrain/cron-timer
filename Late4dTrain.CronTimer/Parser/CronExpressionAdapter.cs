@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace Late4dTrain.CronTimer
+namespace Late4dTrain.CronTimer.Parser
 {
     internal class CronExpressionAdapter
     {

@@ -2,10 +2,10 @@
 
 namespace Late4dTrain.CronTimer
 {
-    internal class NextOccasion
+    internal class CronNextOccasion
     {
         public DateTime? NextUtc { get; set; }
-        public Guid CronId { get; set; }
-        public string CronExpression { get; set; }
+        public Guid Id { get; set; }
+        public string Expression { get; set; }
     }
 }

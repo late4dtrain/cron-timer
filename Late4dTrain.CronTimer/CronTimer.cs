@@ -2,7 +2,10 @@
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Late4dTrain.CronTimer.Abstractions;
+using Late4dTrain.CronTimer.Events;
 using Late4dTrain.CronTimer.Options;
+using Late4dTrain.CronTimer.Parser;
 using Late4dTrain.CronTimer.Providers;
 
 namespace Late4dTrain.CronTimer
@@ -20,7 +23,7 @@ namespace Late4dTrain.CronTimer
         private Task _task;
 
         private readonly CronExpressionAdapter[] _expressions;
-        private NextOccasion _nextOccasion;
+        private CronNextOccasion _nextOccasion;
         private (bool hasNext, TimeSpan elapse) _nextRun;
 
         public event EventHandler<CronEventArgs> TriggeredEventHandler;
@@ -32,7 +35,7 @@ namespace Late4dTrain.CronTimer
             _expressions = _cronOption.Expressions.Select(e => new CronExpressionAdapter
             {
                 Id = e.Id,
-                Expression = CronExpression.Parse(e.Expression, e.ExpressionType),
+                Expression = CronExpression.Parse(e.Expression, e.Formats),
                 CronExpression = e.Expression
             }).ToArray();
 
@@ -40,9 +43,9 @@ namespace Late4dTrain.CronTimer
             _delayProvider = delayProvider ?? new SystemDelayProvider();
         }
 
-        public CronTimer(string expression, CronExpressionType expressionType, ITimeProvider timeProvider = null, IDelayProvider delayProvider = null)
+        public CronTimer(string expression, CronFormats formats, ITimeProvider timeProvider = null, IDelayProvider delayProvider = null)
         {
-            var cronExpression = CronExpression.Parse(expression, expressionType);
+            var cronExpression = CronExpression.Parse(expression, formats);
             _expressions = new[]
             {
                 new CronExpressionAdapter
@@ -187,7 +190,7 @@ namespace Late4dTrain.CronTimer
             }
         }
 
-        private NextOccasion GetNextOccasion()
+        private CronNextOccasion GetNextOccasion()
         {
             DateTime? nextUtc = null;
             Guid cronId = Guid.Empty;
@@ -204,11 +207,11 @@ namespace Late4dTrain.CronTimer
                 }
             }
 
-            return new NextOccasion
+            return new CronNextOccasion
             {
                 NextUtc = nextUtc,
-                CronId = cronId,
-                CronExpression = cronExpression
+                Id = cronId,
+                Expression = cronExpression
             };
         }
 
@@ -226,8 +229,8 @@ namespace Late4dTrain.CronTimer
                 var triggeredTime = _nextOccasion.NextUtc.GetValueOrDefault();
 
                 TriggeredEventHandler?
-                    .Invoke(this, new CronEventArgs(_cts.Token, _nextOccasion.CronId,
-                        _nextOccasion.CronExpression, triggeredTime));
+                    .Invoke(this, new CronEventArgs(_cts.Token, _nextOccasion.Id,
+                        _nextOccasion.Expression, triggeredTime));
 
                 _nextRun = GetNextTimeElapse();
             }
@@ -278,6 +281,11 @@ namespace Late4dTrain.CronTimer
 
                 _disposed = true;
             }
+        }
+
+        ~CronTimer()
+        {
+            Dispose(false);
         }
     }
 }

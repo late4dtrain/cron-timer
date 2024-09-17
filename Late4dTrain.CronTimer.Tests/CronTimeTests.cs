@@ -1,4 +1,6 @@
-﻿using FluentAssertions;
+﻿using System.Diagnostics.CodeAnalysis;
+using FluentAssertions;
+using Late4dTrain.CronTimer.Parser;
 using Late4dTrain.CronTimer.Providers;
 using NSubstitute;
 
@@ -12,7 +14,7 @@ public class CronTimeTests
         // Arrange
         var events = new List<DateTime>();
         var cronExpression = "*/5 * * * * *"; // Every 5 seconds
-        var format = CronExpressionType.IncludeSeconds;
+        var format = CronFormats.IncludeSeconds;
         var startTime = new DateTime(2023, 10, 1, 0, 0, 0, DateTimeKind.Utc);
 
         // Create a substitute for ITimeProvider
@@ -23,7 +25,7 @@ public class CronTimeTests
         var currentTime = startTime;
 
         // Set up UtcNow to return currentTime dynamically
-        timeProvider.UtcNow.Returns(ci => currentTime);
+        timeProvider.UtcNow.Returns(_ => currentTime);
 
         // Set up Delay to increment currentTime by delay
         delayProvider.Delay(Arg.Any<TimeSpan>(), Arg.Any<CancellationToken>())
@@ -31,7 +33,7 @@ public class CronTimeTests
             {
                 var delay = ci.Arg<TimeSpan>();
                 currentTime = currentTime.Add(delay);
-                await Task.Delay(TimeSpan.FromSeconds(1));
+                await Task.Delay(TimeSpan.FromMilliseconds(5));
             });
 
         using var cronTimer = new CronTimer(options => { options.AddCronTabs(new CronTab(cronExpression, format)); },
@@ -40,7 +42,7 @@ public class CronTimeTests
         var tcs = new TaskCompletionSource<bool>();
 
         var expectedEvents = 3;
-        cronTimer.TriggeredEventHandler += (s, e) =>
+        cronTimer.TriggeredEventHandler += (_, e) =>
         {
             events.Add(e.TriggeredUtcDateTime);
             if (events.Count >= expectedEvents)
@@ -65,12 +67,13 @@ public class CronTimeTests
     }
 
     [Fact]
+    [SuppressMessage("ReSharper", "AccessToDisposedClosure")]
     public void CronTimer_Should_Handle_Concurrent_Start_Stop_Calls()
     {
         // Arrange
         var timer = new CronTimer(options =>
         {
-            options.AddCronTabs(new CronTab("*/1 * * * * *", CronExpressionType.IncludeSeconds));
+            options.AddCronTabs(new CronTab("*/1 * * * * *", CronFormats.IncludeSeconds));
         });
 
         var startStopTasks = new List<Task>();
@@ -79,11 +82,13 @@ public class CronTimeTests
         // Act
         for (int i = 0; i < 10; i++)
         {
-            startStopTasks.Add(Task.Run(() => timer.Start()));
-            startStopTasks.Add(Task.Run(() => timer.Stop()));
+            startStopTasks.Add(Task.Run(() => timer.Start(), cts.Token));
+            startStopTasks.Add(Task.Run(() => timer.Stop(), cts.Token));
         }
 
-        Task.WaitAll(startStopTasks.ToArray());
+#pragma warning disable xUnit1031
+        Task.WaitAll(startStopTasks.ToArray(), cts.Token);
+#pragma warning restore xUnit1031
 
         // Assert
         // No exceptions should occur, and the timer's state should be consistent
@@ -99,7 +104,7 @@ public class CronTimeTests
         // Arrange
         var timer = new CronTimer(options =>
         {
-            options.AddCronTabs(new CronTab("*/1 * * * * *", CronExpressionType.IncludeSeconds));
+            options.AddCronTabs(new CronTab("*/1 * * * * *", CronFormats.IncludeSeconds));
         });
 
         // Act

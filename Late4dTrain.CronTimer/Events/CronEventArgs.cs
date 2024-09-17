@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Threading;
 
-namespace Late4dTrain.CronTimer
+namespace Late4dTrain.CronTimer.Events
 {
     public class CronEventArgs : EventArgs
     {

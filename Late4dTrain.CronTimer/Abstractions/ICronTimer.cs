@@ -1,7 +1,4 @@
-﻿using System.Threading;
-using System.Threading.Tasks;
-
-namespace Late4dTrain.CronTimer
+﻿namespace Late4dTrain.CronTimer.Abstractions
 {
     public interface ICronTimer
     {

@@ -1,8 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 
-namespace Late4dTrain.CronTimer
+namespace Late4dTrain.CronTimer.Parser
 {
     public class CronExpression
     {
@@ -17,11 +18,11 @@ namespace Late4dTrain.CronTimer
         public bool HasDayOfMonthSpecialCharacters { get; private set; }
         public bool HasDayOfWeekSpecialCharacters { get; private set; }
 
-        public static CronExpression Parse(string expression, CronExpressionType expressionType)
+        public static CronExpression Parse(string expression, CronFormats formats)
         {
             string[] parts = expression.Split(' ');
 
-            int expectedFieldCount = expressionType == CronExpressionType.IncludeSeconds ? 6 : 5;
+            int expectedFieldCount = formats == CronFormats.IncludeSeconds ? 6 : 5;
 
             if (parts.Length != expectedFieldCount)
                 throw new ArgumentException(
@@ -31,7 +32,7 @@ namespace Late4dTrain.CronTimer
 
             int index = 0;
 
-            if (expressionType == CronExpressionType.IncludeSeconds)
+            if (formats == CronFormats.IncludeSeconds)
             {
                 cron.Seconds = ParseField(parts[index++], 0, 59, "Seconds");
             }
@@ -44,7 +45,7 @@ namespace Late4dTrain.CronTimer
             cron.Hours = ParseField(parts[index++], 0, 23, "Hours");
             cron.DayOfMonth = ParseDayOfMonthField(parts[index++], cron);
             cron.Month = ParseField(parts[index++], 1, 12, "Month", monthNames: true);
-            cron.DayOfWeek = ParseDayOfWeekField(parts[index++], cron);
+            cron.DayOfWeek = ParseDayOfWeekField(parts[index], cron);
 
             return cron;
         }
@@ -116,8 +117,16 @@ namespace Late4dTrain.CronTimer
             }
         }
 
-        private static void ParseRangeBounds(string part, int minValue, int maxValue, string fieldName, bool monthNames,
-            bool dayOfWeekNames, out int rangeStart, out int rangeEnd)
+        [SuppressMessage("Major Code Smell", "S107:Methods should not have too many parameters", Justification = "Method is used for parsing cron expressions.")]
+        private static void ParseRangeBounds(
+            string part,
+            int minValue,
+            int maxValue,
+            string fieldName,
+            bool monthNames,
+            bool dayOfWeekNames,
+            out int rangeStart,
+            out int rangeEnd)
         {
             var rangeBounds = part.Split('-');
             if (rangeBounds.Length != 2)
@@ -128,25 +137,6 @@ namespace Late4dTrain.CronTimer
 
             if (rangeStart > rangeEnd)
                 throw new ArgumentException($"Range start greater than range end in cron field '{fieldName}': {part}");
-        }
-
-        private static void ParseRange(string part, int minValue, int maxValue, SortedSet<int> values, string fieldName,
-            bool monthNames, bool dayOfWeekNames, out int rangeStart, out int rangeEnd)
-        {
-            var rangeBounds = part.Split('-');
-            if (rangeBounds.Length != 2)
-                throw new ArgumentException($"Invalid range in cron field '{fieldName}': {part}");
-
-            rangeStart = ParseSingleValue(rangeBounds[0], minValue, maxValue, fieldName, monthNames, dayOfWeekNames);
-            rangeEnd = ParseSingleValue(rangeBounds[1], minValue, maxValue, fieldName, monthNames, dayOfWeekNames);
-
-            if (rangeStart > rangeEnd)
-                throw new ArgumentException($"Range start greater than range end in cron field '{fieldName}': {part}");
-
-            for (int i = rangeStart; i <= rangeEnd; i++)
-            {
-                values.Add(i);
-            }
         }
 
         private static void ParseRange(string part, int minValue, int maxValue, SortedSet<int> values, string fieldName,
@@ -174,20 +164,14 @@ namespace Late4dTrain.CronTimer
             value = value.Trim();
             int val;
 
-            if (monthNames)
+            if (monthNames && TryParseMonthName(value, out val))
             {
-                if (TryParseMonthName(value, out val))
-                {
-                    return val;
-                }
+                return val;
             }
 
-            if (dayOfWeekNames)
+            if (dayOfWeekNames && TryParseDayOfWeekName(value, out val))
             {
-                if (TryParseDayOfWeekName(value, out val))
-                {
-                    return val;
-                }
+                return val;
             }
 
             if (!int.TryParse(value, out val))
@@ -234,6 +218,7 @@ namespace Late4dTrain.CronTimer
             return false;
         }
 
+        [SuppressMessage("Major Code Smell", "S3776: Cognitive Complexity of methods should not be too high", Justification = "Method is used for parsing cron expressions.")]
         private static SortedSet<int> ParseDayOfMonthField(string field, CronExpression cron)
         {
             var values = new SortedSet<int>();
@@ -334,6 +319,7 @@ namespace Late4dTrain.CronTimer
         // and any other necessary methods for occurrence calculation.
         // For brevity, I will include the optimized GetNextOccurrence method from earlier.
 
+        [SuppressMessage("Major Code Smell", "S3776: Cognitive Complexity of methods should not be too high", Justification = "Method is used for parsing cron expressions.")]
         public DateTime? GetNextOccurrence(DateTime baseTime)
         {
             DateTime next = baseTime;
@@ -353,7 +339,7 @@ namespace Late4dTrain.CronTimer
                 if (!Month.Contains(next.Month))
                 {
                     // Move to the next valid month
-                    int nextMonth = GetNextValue(Month, next.Month, 12);
+                    int nextMonth = GetNextValue(Month, next.Month);
                     int yearsToAdd = nextMonth <= next.Month ? 1 : 0;
                     next = new DateTime(next.Year + yearsToAdd, nextMonth, 1, 0, 0, 0, next.Kind);
                     continue;
@@ -398,7 +384,7 @@ namespace Late4dTrain.CronTimer
                 if (!Hours.Contains(next.Hour))
                 {
                     // Move to the next valid hour
-                    int nextHour = GetNextValue(Hours, next.Hour, 24);
+                    int nextHour = GetNextValue(Hours, next.Hour);
                     if (nextHour <= next.Hour)
                     {
                         next = next.AddDays(1);
@@ -411,7 +397,7 @@ namespace Late4dTrain.CronTimer
                 if (!Minutes.Contains(next.Minute))
                 {
                     // Move to the next valid minute
-                    int nextMinute = GetNextValue(Minutes, next.Minute, 60);
+                    int nextMinute = GetNextValue(Minutes, next.Minute);
                     if (nextMinute <= next.Minute)
                     {
                         next = next.AddHours(1);
@@ -428,7 +414,7 @@ namespace Late4dTrain.CronTimer
                     if (!Seconds.Contains(next.Second))
                     {
                         // Move to the next valid second
-                        int nextSecond = GetNextValue(Seconds, next.Second, 60);
+                        int nextSecond = GetNextValue(Seconds, next.Second);
                         if (nextSecond <= next.Second)
                         {
                             next = next.AddMinutes(1);
@@ -510,7 +496,7 @@ namespace Late4dTrain.CronTimer
             return false;
         }
 
-        private bool IsLastDayOfWeekInMonth(DateTime date, int dayOfWeek)
+        private static bool IsLastDayOfWeekInMonth(DateTime date, int dayOfWeek)
         {
             if ((int)date.DayOfWeek != dayOfWeek)
                 return false;
@@ -519,7 +505,7 @@ namespace Late4dTrain.CronTimer
             return nextWeekSameDay.Month != date.Month;
         }
 
-        private int GetNextValue(SortedSet<int> values, int currentValue, int maxValue)
+        private static int GetNextValue(SortedSet<int> values, int currentValue)
         {
             // Try to find the next higher value
             foreach (var val in values)

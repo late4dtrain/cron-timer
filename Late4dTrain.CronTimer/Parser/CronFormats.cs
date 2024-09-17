@@ -1,9 +1,9 @@
 using System;
 
-namespace Late4dTrain.CronTimer
+namespace Late4dTrain.CronTimer.Parser
 {
     [Flags]
-    public enum CronExpressionType
+    public enum CronFormats
     {
         None = 0,
         Standard = 1,
@@ -12,7 +12,7 @@ namespace Late4dTrain.CronTimer
 
     public static class CronExpressionTypeExtensions
     {
-        public static bool HasFlagFast(this CronExpressionType value, CronExpressionType flag)
+        public static bool HasFlagFast(this CronFormats value, CronFormats flag)
         {
             return (value & flag) != 0;
         }
