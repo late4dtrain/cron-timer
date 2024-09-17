@@ -2,11 +2,12 @@
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Late4dTrain.CronTimer.Options;
 using Late4dTrain.CronTimer.Providers;
 
 namespace Late4dTrain.CronTimer
 {
-    public class CronTimer : ICronTimer, IDisposable
+    public sealed class CronTimer : ICronTimer, IDisposable, ICronTimerAsync
     {
         private readonly CronOption _cronOption = new CronOption();
         private readonly ITimeProvider _timeProvider;
@@ -15,10 +16,10 @@ namespace Late4dTrain.CronTimer
 
         private bool _isRunning;
         private bool _disposed;
-        private CancellationTokenSource _cancellationTokenSource;
+        private CancellationTokenSource _cts;
         private Task _task;
 
-        private CronExpressionAdapter[] _expressions;
+        private readonly CronExpressionAdapter[] _expressions;
         private NextOccasion _nextOccasion;
         private (bool hasNext, TimeSpan elapse) _nextRun;
 
@@ -30,7 +31,7 @@ namespace Late4dTrain.CronTimer
             action(_cronOption);
             _expressions = _cronOption.Expressions.Select(e => new CronExpressionAdapter
             {
-                CronId = e.Id,
+                Id = e.Id,
                 Expression = CronExpression.Parse(e.Expression, e.ExpressionType),
                 CronExpression = e.Expression
             }).ToArray();
@@ -39,7 +40,24 @@ namespace Late4dTrain.CronTimer
             _delayProvider = delayProvider ?? new SystemDelayProvider();
         }
 
-        public void Start(CancellationToken cancellationToken, int? executionTimes = null)
+        public CronTimer(string expression, CronExpressionType expressionType, ITimeProvider timeProvider = null, IDelayProvider delayProvider = null)
+        {
+            var cronExpression = CronExpression.Parse(expression, expressionType);
+            _expressions = new[]
+            {
+                new CronExpressionAdapter
+                {
+                    Id = Guid.NewGuid(),
+                    Expression = cronExpression,
+                    CronExpression = expression
+                }
+            };
+
+            _timeProvider = timeProvider ?? new SystemTimeProvider();
+            _delayProvider = delayProvider ?? new SystemDelayProvider();
+        }
+
+        public void Start(int? executionTimes = null)
         {
             lock (_stateLock)
             {
@@ -47,7 +65,7 @@ namespace Late4dTrain.CronTimer
                     return; // Timer is already running
 
                 _isRunning = true;
-                _cancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                _cts = new CancellationTokenSource();
 
                 _task = Task.Run(async () =>
                 {
@@ -71,8 +89,44 @@ namespace Late4dTrain.CronTimer
                             break;
                         }
                     }
-                }, _cancellationTokenSource.Token);
+                }, _cts.Token);
             }
+        }
+
+        public async Task StartAsync(CancellationToken cancellationToken, int? executionTimes = null)
+        {
+            lock (_stateLock)
+            {
+                if (_isRunning)
+                    return; // Timer is already running
+
+                _isRunning = true;
+                _cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            }
+
+            await Task.Run(async () =>
+            {
+                while (true)
+                {
+                    if (!_isRunning)
+                        break;
+
+                    _nextRun = GetNextTimeElapse();
+
+                    if (!_nextRun.hasNext)
+                    {
+                        _isRunning = false;
+                        break;
+                    }
+
+                    await RunOnceAsync();
+                    if (executionTimes != null && --executionTimes <= 0)
+                    {
+                        _isRunning = false;
+                        break;
+                    }
+                }
+            }, _cts.Token);
         }
 
         public void Stop()
@@ -83,9 +137,39 @@ namespace Late4dTrain.CronTimer
                     return; // Timer is already stopped
 
                 _isRunning = false;
-                _cancellationTokenSource.Cancel();
-                _cancellationTokenSource.Dispose();
-                _cancellationTokenSource = null;
+                _cts.Cancel();
+                _cts.Dispose();
+                _cts = null;
+            }
+        }
+
+        public async Task StopAsync(CancellationToken cancellationToken)
+        {
+            lock (_stateLock)
+            {
+                if (!_isRunning)
+                    return; // Timer is already stopped
+
+                _isRunning = false;
+                _cts.Cancel();
+            }
+
+            if (_task != null)
+            {
+                try
+                {
+                    await Task.WhenAny(_task, Task.Delay(Timeout.Infinite, cancellationToken)); // Ensure the task completes
+                }
+                catch (OperationCanceledException)
+                {
+                    // Handle cancellation
+                }
+            }
+
+            lock (_stateLock)
+            {
+                _cts.Dispose();
+                _cts = null;
             }
         }
 
@@ -115,7 +199,7 @@ namespace Late4dTrain.CronTimer
                 if (occurrence.HasValue && (nextUtc == null || occurrence < nextUtc))
                 {
                     nextUtc = occurrence;
-                    cronId = expression.CronId;
+                    cronId = expression.Id;
                     cronExpression = expression.CronExpression;
                 }
             }
@@ -136,13 +220,13 @@ namespace Late4dTrain.CronTimer
 
                 if (delay > TimeSpan.Zero)
                 {
-                    await _delayProvider.Delay(delay, _cancellationTokenSource.Token);
+                    await _delayProvider.Delay(delay, _cts.Token);
                 }
 
                 var triggeredTime = _nextOccasion.NextUtc.GetValueOrDefault();
 
                 TriggeredEventHandler?
-                    .Invoke(this, new CronEventArgs(_cancellationTokenSource.Token, _nextOccasion.CronId,
+                    .Invoke(this, new CronEventArgs(_cts.Token, _nextOccasion.CronId,
                         _nextOccasion.CronExpression, triggeredTime));
 
                 _nextRun = GetNextTimeElapse();
@@ -163,7 +247,7 @@ namespace Late4dTrain.CronTimer
             GC.SuppressFinalize(this);
         }
 
-        protected virtual void Dispose(bool disposing)
+        private void Dispose(bool disposing)
         {
             lock (_stateLock)
             {
@@ -186,8 +270,8 @@ namespace Late4dTrain.CronTimer
                         }
                     }
 
-                    _cancellationTokenSource?.Dispose();
-                    _cancellationTokenSource = null;
+                    _cts?.Dispose();
+                    _cts = null;
                     _task = null;
                     TriggeredEventHandler = null;
                 }

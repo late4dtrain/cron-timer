@@ -5,7 +5,7 @@ namespace Late4dTrain.CronTimer
 {
     public interface ICronTimer
     {
-        void Start(CancellationToken cancellationToken, int? executionTimes = null);
+        void Start(int? executionTimes = null);
         void Stop();
     }
 }

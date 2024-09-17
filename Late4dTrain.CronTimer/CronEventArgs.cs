@@ -5,16 +5,18 @@ namespace Late4dTrain.CronTimer
 {
     public class CronEventArgs : EventArgs
     {
-        public CronEventArgs(CancellationToken cancellationToken, Guid cronId, string cronExpression,
+        public CronEventArgs(CancellationToken cancellationToken, Guid id, string expression,
             DateTime triggeredUtcDateTime)
         {
-            (CancellationToken, TriggeredUtcDateTime, CronId, CronExpression, TriggeredUtcDateTime) =
-                (cancellationToken, DateTime.UtcNow, cronId, cronExpression, triggeredUtcDateTime);
+            CancellationToken = cancellationToken;
+            Id = id;
+            Expression = expression;
+            TriggeredUtcDateTime = triggeredUtcDateTime;
         }
 
-        public Guid CronId { get; }
+        public Guid Id { get; }
         public DateTime TriggeredUtcDateTime { get; }
         public CancellationToken CancellationToken { get; }
-        public string CronExpression { get; }
+        public string Expression { get; }
     }
 }

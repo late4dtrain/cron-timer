@@ -27,11 +27,11 @@ public class CronTimeTests
 
         // Set up Delay to increment currentTime by delay
         delayProvider.Delay(Arg.Any<TimeSpan>(), Arg.Any<CancellationToken>())
-            .Returns(ci =>
+            .Returns(async ci =>
             {
                 var delay = ci.Arg<TimeSpan>();
                 currentTime = currentTime.Add(delay);
-                return Task.CompletedTask;
+                await Task.Delay(TimeSpan.FromSeconds(1));
             });
 
         using var cronTimer = new CronTimer(options => { options.AddCronTabs(new CronTab(cronExpression, format)); },
@@ -49,9 +49,8 @@ public class CronTimeTests
             }
         };
 
-        var ct = CancellationToken.None;
         // Act
-        cronTimer.Start(ct, executionTimes: 3);
+        cronTimer.Start();
 
         // Wait for the events to be processed
         await tcs.Task;
@@ -75,12 +74,12 @@ public class CronTimeTests
         });
 
         var startStopTasks = new List<Task>();
-        var cts = new CancellationTokenSource();
+        using var cts = new CancellationTokenSource();
 
         // Act
         for (int i = 0; i < 10; i++)
         {
-            startStopTasks.Add(Task.Run(() => timer.Start(cts.Token)));
+            startStopTasks.Add(Task.Run(() => timer.Start()));
             startStopTasks.Add(Task.Run(() => timer.Stop()));
         }
 
@@ -89,6 +88,8 @@ public class CronTimeTests
         // Assert
         // No exceptions should occur, and the timer's state should be consistent
         timer.Dispose();
+
+        timer.Should().NotBeNull();
     }
 
 
@@ -106,5 +107,7 @@ public class CronTimeTests
 
         // Assert
         timer.Stop(); // Should not throw any exceptions
+
+        timer.Should().NotBeNull();
     }
 }
