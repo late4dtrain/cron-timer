@@ -1,6 +1,7 @@
 ﻿using Late4dTrain.CronTimer.Providers;
 
 namespace Late4dTrain.CronTimer.Tests.Providers;
+
 public class MockTimeProvider : ITimeProvider
 {
     private DateTime _utcNow;
