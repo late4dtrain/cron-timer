@@ -43,7 +43,8 @@ namespace Late4dTrain.CronTimer
             _delayProvider = delayProvider ?? new SystemDelayProvider();
         }
 
-        public CronTimer(string expression, CronFormats formats, ITimeProvider timeProvider = null, IDelayProvider delayProvider = null)
+        public CronTimer(string expression, CronFormats formats, ITimeProvider timeProvider = null,
+            IDelayProvider delayProvider = null)
         {
             var cronExpression = CronExpression.Parse(expression, formats);
             _expressions = new[]
@@ -161,7 +162,8 @@ namespace Late4dTrain.CronTimer
             {
                 try
                 {
-                    await Task.WhenAny(_task, Task.Delay(Timeout.Infinite, cancellationToken)); // Ensure the task completes
+                    await Task.WhenAny(_task,
+                        Task.Delay(Timeout.Infinite, cancellationToken)); // Ensure the task completes
                 }
                 catch (OperationCanceledException)
                 {

@@ -117,7 +117,8 @@ namespace Late4dTrain.CronTimer.Parser
             }
         }
 
-        [SuppressMessage("Major Code Smell", "S107:Methods should not have too many parameters", Justification = "Method is used for parsing cron expressions.")]
+        [SuppressMessage("Major Code Smell", "S107:Methods should not have too many parameters",
+            Justification = "Method is used for parsing cron expressions.")]
         private static void ParseRangeBounds(
             string part,
             int minValue,
@@ -218,7 +219,8 @@ namespace Late4dTrain.CronTimer.Parser
             return false;
         }
 
-        [SuppressMessage("Major Code Smell", "S3776: Cognitive Complexity of methods should not be too high", Justification = "Method is used for parsing cron expressions.")]
+        [SuppressMessage("Major Code Smell", "S3776: Cognitive Complexity of methods should not be too high",
+            Justification = "Method is used for parsing cron expressions.")]
         private static SortedSet<int> ParseDayOfMonthField(string field, CronExpression cron)
         {
             var values = new SortedSet<int>();
@@ -319,7 +321,8 @@ namespace Late4dTrain.CronTimer.Parser
         // and any other necessary methods for occurrence calculation.
         // For brevity, I will include the optimized GetNextOccurrence method from earlier.
 
-        [SuppressMessage("Major Code Smell", "S3776: Cognitive Complexity of methods should not be too high", Justification = "Method is used for parsing cron expressions.")]
+        [SuppressMessage("Major Code Smell", "S3776: Cognitive Complexity of methods should not be too high",
+            Justification = "Method is used for parsing cron expressions.")]
         public DateTime? GetNextOccurrence(DateTime baseTime)
         {
             DateTime next = baseTime;

@@ -10,7 +10,7 @@ namespace Late4dTrain.CronTimer.Parser
         IncludeSeconds = 2,
     }
 
-    public static class CronExpressionTypeExtensions
+    public static class CronFormatExtensions
     {
         public static bool HasFlagFast(this CronFormats value, CronFormats flag)
         {
