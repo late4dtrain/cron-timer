@@ -68,7 +68,7 @@ public class CronTimeTests
 
     [Fact]
     public async Task CronTimer_Should_Trigger_Event_With_Simplified_Constructor_TimeProvider()
-        {
+    {
         // Arrange
         var events = new List<DateTime>();
         var startTime = new DateTime(2023, 10, 1, 0, 0, 0, DateTimeKind.Utc);
