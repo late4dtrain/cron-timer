@@ -86,7 +86,7 @@ namespace Late4dTrain.CronTimer
                             break;
                         }
 
-                        await RunOnceAsync();
+                        await RunAsync();
                         if (executionTimes != null && --executionTimes <= 0)
                         {
                             _isRunning = false;
@@ -123,7 +123,7 @@ namespace Late4dTrain.CronTimer
                         break;
                     }
 
-                    await RunOnceAsync();
+                    await RunAsync();
                     if (executionTimes != null && --executionTimes <= 0)
                     {
                         _isRunning = false;
@@ -217,7 +217,7 @@ namespace Late4dTrain.CronTimer
             };
         }
 
-        private async Task RunOnceAsync()
+        private async Task RunAsync()
         {
             try
             {
