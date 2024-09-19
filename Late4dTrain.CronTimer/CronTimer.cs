@@ -10,7 +10,7 @@ using Late4dTrain.CronTimer.Providers;
 
 namespace Late4dTrain.CronTimer
 {
-    public sealed class CronTimer : ICronTimer, IDisposable, ICronTimerAsync
+    public sealed class CronTimer : ICronTimer, ICronTimerAsync, IDisposable
     {
         private readonly CronOption _cronOption = new CronOption();
         private readonly ITimeProvider _timeProvider;
@@ -61,7 +61,7 @@ namespace Late4dTrain.CronTimer
             _delayProvider = delayProvider ?? new SystemDelayProvider();
         }
 
-        public void Start(int? executionTimes = null)
+        public void Start()
         {
             lock (_stateLock)
             {
@@ -87,17 +87,12 @@ namespace Late4dTrain.CronTimer
                         }
 
                         await RunAsync();
-                        if (executionTimes != null && --executionTimes <= 0)
-                        {
-                            _isRunning = false;
-                            break;
-                        }
                     }
                 }, _cts.Token);
             }
         }
 
-        public async Task StartAsync(CancellationToken cancellationToken, int? executionTimes = null)
+        public async Task StartAsync(CancellationToken cancellationToken)
         {
             lock (_stateLock)
             {
@@ -124,11 +119,6 @@ namespace Late4dTrain.CronTimer
                     }
 
                     await RunAsync();
-                    if (executionTimes != null && --executionTimes <= 0)
-                    {
-                        _isRunning = false;
-                        break;
-                    }
                 }
             }, _cts.Token);
         }
