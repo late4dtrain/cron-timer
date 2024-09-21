@@ -5,7 +5,7 @@ namespace Late4dTrain.CronTimer.Abstractions
 {
     public interface ICronTimerAsync
     {
-        Task StartAsync(CancellationToken cancellationToken, int? executionTimes = null);
+        Task StartAsync(CancellationToken cancellationToken);
         Task StopAsync(CancellationToken cancellationToken);
     }
 }

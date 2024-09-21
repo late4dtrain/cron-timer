@@ -170,4 +170,113 @@ public class CronTimeTests
 
         timer.Should().NotBeNull();
     }
+
+    [Fact]
+    public async Task CronTimer_Should_Respect_ExecutionTimeout()
+    {
+        // Arrange
+        var events = new List<DateTime>();
+        var cronExpression = "0 0 * * *"; // Every day at midnight
+        var format = CronFormats.Standard;
+        var startTime = new DateTime(2023, 10, 1, 23, 59, 59, DateTimeKind.Utc);
+        var executionTimeout = 500; // 500 ms timeout
+
+        var timeProvider = Substitute.For<ITimeProvider>();
+        var delayProvider = Substitute.For<IDelayProvider>();
+
+        var currentTime = startTime;
+        timeProvider.UtcNow.Returns(_ => currentTime);
+
+        delayProvider.Delay(Arg.Any<TimeSpan>(), Arg.Any<CancellationToken>())
+            .Returns(async ci =>
+            {
+                var delay = ci.Arg<TimeSpan>();
+                currentTime = currentTime.Add(delay);
+                await Task.Delay(10); // Short delay to allow for timeout
+            });
+
+        using var cronTimer = new CronTimer(
+            options => { options.AddCronTabs(new CronTab(cronExpression, format)); },
+            timeProvider,
+            delayProvider,
+            executionTimeout);
+
+        var eventTriggered = false;
+        cronTimer.TriggeredEventHandler += async (_, e) =>
+        {
+            if (!eventTriggered)
+            {
+                eventTriggered = true;
+                events.Add(e.TriggeredUtcDateTime);
+                await Task.Delay(1000, e.CancellationToken); // Simulate long-running operation
+            }
+        };
+
+        // Act
+        cronTimer.Start();
+
+        // Wait for more than the execution timeout
+        await Task.Delay(1500);
+
+        cronTimer.Stop();
+
+        // Assert
+        eventTriggered.Should().BeTrue(); // The event should have been triggered
+        events.Should().HaveCount(1); // One event should have been added before the timeout
+        events[0].Should()
+            .Be(new DateTime(2023, 10, 2, 0, 0, 0, DateTimeKind.Utc)); // The event should be at the next day's midnight
+    }
+
+    [Fact]
+    public async Task CronTimer_Should_Allow_Long_Running_Tasks_With_Infinite_Timeout()
+    {
+        // Arrange
+        var events = new List<DateTime>();
+        var cronExpression = "*/1 * * * * *"; // Every second
+        var format = CronFormats.IncludeSeconds;
+        var startTime = new DateTime(2023, 10, 1, 0, 0, 0, DateTimeKind.Utc);
+
+        var timeProvider = Substitute.For<ITimeProvider>();
+        var delayProvider = Substitute.For<IDelayProvider>();
+
+        var currentTime = startTime;
+        timeProvider.UtcNow.Returns(_ => currentTime);
+
+        delayProvider.Delay(Arg.Any<TimeSpan>(), Arg.Any<CancellationToken>())
+            .Returns(async ci =>
+            {
+                var delay = ci.Arg<TimeSpan>();
+                currentTime = currentTime.Add(delay);
+                await Task.Delay(10);
+            });
+
+        using var cronTimer = new CronTimer(
+            options => { options.AddCronTabs(new CronTab(cronExpression, format)); },
+            timeProvider,
+            delayProvider);
+
+        var tcs = new TaskCompletionSource<bool>();
+
+        cronTimer.TriggeredEventHandler += async (_, e) =>
+        {
+            await Task.Delay(1000); // Simulate long-running operation
+            events.Add(e.TriggeredUtcDateTime);
+            if (!tcs.Task.IsCompleted)
+            {
+                tcs.TrySetResult(true);
+            }
+        };
+
+        // Act
+        cronTimer.Start();
+
+        // Wait for the event to be processed
+        await Task.WhenAny(tcs.Task, Task.Delay(2000));
+
+        cronTimer.Stop();
+
+        // Assert
+        events.Should().HaveCount(1); // The event should have completed
+        events[0].Should().Be(startTime.AddSeconds(1)); // At 00:00:01
+    }
 }

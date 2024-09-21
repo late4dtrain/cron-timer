@@ -2,7 +2,7 @@
 {
     public interface ICronTimer
     {
-        void Start(int? executionTimes = null);
+        void Start();
         void Stop();
     }
 }
