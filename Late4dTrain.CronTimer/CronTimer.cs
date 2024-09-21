@@ -16,6 +16,7 @@ namespace Late4dTrain.CronTimer
         private readonly ITimeProvider _timeProvider;
         private readonly IDelayProvider _delayProvider;
         private readonly object _stateLock = new object();
+        private readonly int _executionTimeout;
 
         private bool _isRunning;
         private bool _disposed;
@@ -25,11 +26,15 @@ namespace Late4dTrain.CronTimer
         private readonly CronExpressionAdapter[] _expressions;
         private CronNextOccasion _nextOccasion;
         private (bool hasNext, TimeSpan elapse) _nextRun;
+        private readonly Action<string, Exception> _errorLogger;
+        private readonly Action<string> _infoLogger;
 
         public event EventHandler<CronEventArgs> TriggeredEventHandler;
 
         public CronTimer(Action<CronOption> action, ITimeProvider timeProvider = null,
-            IDelayProvider delayProvider = null)
+            IDelayProvider delayProvider = null, int executionTimeout = Timeout.Infinite,
+            Action<string, Exception> errorLogger = null,
+            Action<string> infoLogger = null)
         {
             action(_cronOption);
             _expressions = _cronOption.Expressions.Select(e => new CronExpressionAdapter
@@ -41,10 +46,13 @@ namespace Late4dTrain.CronTimer
 
             _timeProvider = timeProvider ?? new SystemTimeProvider();
             _delayProvider = delayProvider ?? new SystemDelayProvider();
+            _executionTimeout = executionTimeout;
+            _errorLogger = errorLogger;
+            _infoLogger = infoLogger;
         }
 
         public CronTimer(string expression, CronFormats formats, ITimeProvider timeProvider = null,
-            IDelayProvider delayProvider = null)
+            IDelayProvider delayProvider = null, int executionTimeout = Timeout.Infinite)
         {
             var cronExpression = CronExpression.Parse(expression, formats);
             _expressions = new[]
@@ -59,6 +67,7 @@ namespace Late4dTrain.CronTimer
 
             _timeProvider = timeProvider ?? new SystemTimeProvider();
             _delayProvider = delayProvider ?? new SystemDelayProvider();
+            _executionTimeout = executionTimeout;
         }
 
         public void Start()
@@ -209,31 +218,71 @@ namespace Late4dTrain.CronTimer
 
         private async Task RunAsync()
         {
-            try
+            while (!_cts.IsCancellationRequested)
             {
-                var delay = _nextRun.elapse;
-
-                if (delay > TimeSpan.Zero)
+                try
                 {
-                    await _delayProvider.Delay(delay, _cts.Token);
+                    var delay = _nextRun.elapse;
+
+                    if (delay > TimeSpan.Zero)
+                    {
+                        await _delayProvider.Delay(delay, _cts.Token);
+                    }
+
+                    var triggeredTime = _nextOccasion.NextUtc.GetValueOrDefault();
+
+                    using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(_cts.Token);
+                    timeoutCts.CancelAfter(_executionTimeout);
+
+                    try
+                    {
+                        await Task.Run(() =>
+                        {
+                            TriggeredEventHandler?.Invoke(this, new CronEventArgs(timeoutCts.Token, _nextOccasion.Id,
+                                _nextOccasion.Expression, triggeredTime));
+                        }, timeoutCts.Token);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        LogInfo($"Operation cancelled due to timeout for expression: {_nextOccasion.Expression}");
+                    }
+
+                    // Only update _nextRun if the operation wasn't cancelled
+                    if (!timeoutCts.IsCancellationRequested)
+                    {
+                        _nextRun = GetNextTimeElapse();
+                    }
+                    else
+                    {
+                        // If cancelled, wait for the next scheduled time
+                        await _delayProvider.Delay(TimeSpan.FromSeconds(1), _cts.Token);
+                    }
                 }
-
-                var triggeredTime = _nextOccasion.NextUtc.GetValueOrDefault();
-
-                TriggeredEventHandler?
-                    .Invoke(this, new CronEventArgs(_cts.Token, _nextOccasion.Id,
-                        _nextOccasion.Expression, triggeredTime));
-
-                _nextRun = GetNextTimeElapse();
+                catch (OperationCanceledException)
+                {
+                    LogInfo("CronTimer operation cancelled.");
+                    break;
+                }
+                catch (ObjectDisposedException)
+                {
+                    LogError("CronTimer object disposed unexpectedly.", new ObjectDisposedException(nameof(CronTimer)));
+                    break;
+                }
+                catch (Exception ex)
+                {
+                    LogError("Unexpected error in CronTimer.", ex);
+                }
             }
-            catch (OperationCanceledException)
-            {
-                // Handle cancellation
-            }
-            catch (ObjectDisposedException)
-            {
-                // Handle disposal
-            }
+        }
+
+        private void LogError(string message, Exception ex)
+        {
+            _errorLogger?.Invoke(message, ex);
+        }
+
+        private void LogInfo(string message)
+        {
+            _infoLogger?.Invoke(message);
         }
 
         public void Dispose()
@@ -261,6 +310,7 @@ namespace Late4dTrain.CronTimer
                         }
                         catch (AggregateException ex)
                         {
+                            LogError("Error occurred while waiting for the task to complete.", ex);
                             // Handle exceptions from the task, if needed
                         }
                     }
