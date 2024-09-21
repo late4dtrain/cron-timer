@@ -261,7 +261,10 @@ public class CronTimeTests
         {
             await Task.Delay(1000); // Simulate long-running operation
             events.Add(e.TriggeredUtcDateTime);
-            tcs.SetResult(true);
+            if (!tcs.Task.IsCompleted)
+            {
+                tcs.TrySetResult(true);
+            }
         };
 
         // Act
