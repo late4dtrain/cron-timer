@@ -1,15 +1,14 @@
-﻿using System.Collections.Generic;
-using Late4dTrain.CronTimer.Parser;
+﻿using Late4dTrain.CronTimer.Parser;
 
 namespace Late4dTrain.CronTimer.Options
 {
     public class CronOption
     {
-        public List<CronTab> Expressions { get; } = new List<CronTab>();
+        public CronTab Expression { get; private set; }
 
-        public void AddCronTabs(params CronTab[] cronTabs)
+        public void AddCronTab(CronTab cronTab)
         {
-            Expressions.AddRange(cronTabs);
+            Expression = cronTab;
         }
     }
 }

@@ -37,12 +37,16 @@ namespace Late4dTrain.CronTimer
             Action<string> infoLogger = null)
         {
             action(_cronOption);
-            _expressions = _cronOption.Expressions.Select(e => new CronExpressionAdapter
+            var cronTab = _cronOption.Expression;
+            _expressions = new[]
             {
-                Id = e.Id,
-                Expression = CronExpression.Parse(e.Expression, e.Formats),
-                CronExpression = e.Expression
-            }).ToArray();
+                new CronExpressionAdapter
+                {
+                    Id = cronTab.Id,
+                    Expression = CronExpression.Parse(cronTab.Expression, cronTab.Formats),
+                    CronExpression = cronTab.Expression
+                }
+            };
 
             _timeProvider = timeProvider ?? new SystemTimeProvider();
             _delayProvider = delayProvider ?? new SystemDelayProvider();

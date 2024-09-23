@@ -36,7 +36,7 @@ public class CronTimeTests
                 await Task.Delay(TimeSpan.FromMilliseconds(5));
             });
 
-        using var cronTimer = new CronTimer(options => { options.AddCronTabs(new CronTab(cronExpression, format)); },
+        using var cronTimer = new CronTimer(options => { options.AddCronTab(new CronTab(cronExpression, format)); },
             timeProvider, delayProvider);
 
         var tcs = new TaskCompletionSource<bool>();
@@ -128,7 +128,7 @@ public class CronTimeTests
         // Arrange
         var timer = new CronTimer(options =>
         {
-            options.AddCronTabs(new CronTab("*/1 * * * * *", CronFormats.IncludeSeconds));
+            options.AddCronTab(new CronTab("*/1 * * * * *", CronFormats.IncludeSeconds));
         });
 
         var startStopTasks = new List<Task>();
@@ -159,7 +159,7 @@ public class CronTimeTests
         // Arrange
         var timer = new CronTimer(options =>
         {
-            options.AddCronTabs(new CronTab("*/1 * * * * *", CronFormats.IncludeSeconds));
+            options.AddCronTab(new CronTab("*/1 * * * * *", CronFormats.IncludeSeconds));
         });
 
         // Act
@@ -196,7 +196,7 @@ public class CronTimeTests
             });
 
         using var cronTimer = new CronTimer(
-            options => { options.AddCronTabs(new CronTab(cronExpression, format)); },
+            options => { options.AddCronTab(new CronTab(cronExpression, format)); },
             timeProvider,
             delayProvider,
             executionTimeout);
@@ -251,7 +251,7 @@ public class CronTimeTests
             });
 
         using var cronTimer = new CronTimer(
-            options => { options.AddCronTabs(new CronTab(cronExpression, format)); },
+            options => { options.AddCronTab(new CronTab(cronExpression, format)); },
             timeProvider,
             delayProvider);
 
@@ -278,5 +278,101 @@ public class CronTimeTests
         // Assert
         events.Should().HaveCount(1); // The event should have completed
         events[0].Should().Be(startTime.AddSeconds(1)); // At 00:00:01
+    }
+
+
+    [Theory]
+    [InlineData("0 0 12 * * ?", CronFormats.IncludeSeconds)]
+    [InlineData("0 12 * * ?", CronFormats.Standard)]
+    [InlineData("*/5 * * * * *", CronFormats.IncludeSeconds)] // Every 5 seconds
+    [InlineData("0 0/5 * * * ?", CronFormats.IncludeSeconds)] // Every 5 minutes
+    [InlineData("0 0 0/1 * * ?", CronFormats.IncludeSeconds)] // Every hour
+    [InlineData("0 0 12 1/1 * ?", CronFormats.IncludeSeconds)] // Every day at noon
+    [InlineData("0 0 12 1 1 ?", CronFormats.IncludeSeconds)] // Every year on January 1st at noon
+    [InlineData("0 0 12 ? * 2-6", CronFormats.IncludeSeconds)] // Every weekday at noon
+    [InlineData("0 0 12 L * ?", CronFormats.IncludeSeconds)] // Last day of every month at noon
+    [InlineData("0 0 12 LW * ?", CronFormats.IncludeSeconds)] // Last weekday of every month at noon
+    [InlineData("0 0 12 ? * 5L", CronFormats.IncludeSeconds)] // Last Friday of every month at noon
+    [InlineData("0 0 12 ? * 5#3", CronFormats.IncludeSeconds)] // Third Friday of every month at noon
+    [InlineData("0 0 12 15W * ?", CronFormats.IncludeSeconds)] // Nearest weekday to the 15th of every month at noon
+    [InlineData("0 0 12 1W * ?", CronFormats.IncludeSeconds)] // Nearest weekday to the 1st of every month at noon
+    [InlineData("0 0 12 ? * MON-FRI", CronFormats.IncludeSeconds)] // Every weekday at noon
+    [InlineData("0 0 12 1 1/2 ?", CronFormats.IncludeSeconds)] // Every 2 months on the 1st at noon
+    [InlineData("0 0 12 1 1/3 ?", CronFormats.IncludeSeconds)] // Every 3 months on the 1st at noon
+    [InlineData("0 0 12 1 1/4 ?", CronFormats.IncludeSeconds)] // Every 4 months on the 1st at noon
+    [InlineData("0 0 12 1 1/6 ?", CronFormats.IncludeSeconds)] // Every 6 months on the 1st at noon
+    public void ValidateExpression_Should_Not_Throw_For_Valid_Expressions(string expression, CronFormats formats)
+    {
+        // Act
+        Action act = () => new CronTab(expression, formats);
+
+        // Assert
+        act.Should().NotThrow();
+    }
+
+    [Theory]
+// Empty expression
+    [InlineData("", CronFormats.IncludeSeconds, "Invalid number of fields in cron expression. Expected 6, got 0.")]
+    [InlineData("   ", CronFormats.Standard, "Invalid number of fields in cron expression. Expected 5, got 0.")]
+// Too few fields
+    [InlineData("0 0 12 * *", CronFormats.IncludeSeconds, "Invalid number of fields in cron expression. Expected 6, got 5.")]
+    [InlineData("0 12 * *", CronFormats.Standard, "Invalid number of fields in cron expression. Expected 5, got 4.")]
+// Too many fields
+    [InlineData("0 0 12 * * * *", CronFormats.IncludeSeconds,
+        "Invalid number of fields in cron expression. Expected 6, got 7.")]
+    [InlineData("0 0 12 * * *", CronFormats.Standard,
+        "Invalid number of fields in cron expression. Expected 5, got 6.")]
+// Invalid characters
+    [InlineData("0 0 12 * * %", CronFormats.IncludeSeconds, "Invalid cron expression.")]
+    [InlineData("0 0 12 * * ?", CronFormats.Standard, "Invalid number of fields in cron expression. Expected 5, got 6.")]
+// Invalid ranges
+    [InlineData("0 0 60 * * ?", CronFormats.IncludeSeconds, "Invalid cron expression.")]
+    [InlineData("0 70 12 * * ?", CronFormats.IncludeSeconds, "Invalid cron expression.")]
+    [InlineData("0 0 12 * 13 ?", CronFormats.IncludeSeconds, "Invalid cron expression.")]
+// Invalid step values
+    [InlineData("*/-5 * * * * ?", CronFormats.IncludeSeconds, "Invalid cron expression.")]
+    [InlineData("*/0 * * * * ?", CronFormats.IncludeSeconds, "Invalid cron expression.")]
+// Invalid day of week
+    [InlineData("0 0 12 ? * 8", CronFormats.IncludeSeconds, "Invalid cron expression.")]
+    [InlineData("0 0 12 ? * MON-FR", CronFormats.IncludeSeconds, "Invalid cron expression.")]
+// Invalid day of month
+    [InlineData("0 0 12 32 * ?", CronFormats.IncludeSeconds, "Invalid cron expression.")]
+    [InlineData("0 0 12 0 * ?", CronFormats.IncludeSeconds, "Invalid cron expression.")]
+// Missing required fields
+    [InlineData("0 0 * * ?", CronFormats.IncludeSeconds,
+        "Invalid number of fields in cron expression. Expected 6, got 5.")]
+    [InlineData("0 * * ?", CronFormats.Standard, "Invalid number of fields in cron expression. Expected 5, got 4.")]
+// Invalid use of 'L', 'W', '#'
+    [InlineData("0 0 12 L-3 * ?", CronFormats.IncludeSeconds, "Invalid cron expression.")]
+    [InlineData("0 0 12 15#5 * ?", CronFormats.IncludeSeconds, "Invalid cron expression.")]
+// Invalid month abbreviations
+    [InlineData("0 0 12 * JANUARY ?", CronFormats.IncludeSeconds, "Invalid cron expression.")]
+    [InlineData("0 0 12 * JAN-MARCH ?", CronFormats.IncludeSeconds, "Invalid cron expression.")]
+// Invalid day of week abbreviations
+    [InlineData("0 0 12 ? * MONDAY", CronFormats.IncludeSeconds, "Invalid cron expression.")]
+    [InlineData("0 0 12 ? * SUN-SAT", CronFormats.IncludeSeconds, "Invalid day of week value 'SUN-SAT'.")]
+// Invalid format specifiers
+    [InlineData("0 0 12 * *", CronFormats.IncludeSeconds, "Invalid number of fields in cron expression. Expected 6, got 5.")]
+// Non-numeric where numbers are expected
+    [InlineData("0 0 twelve * * ?", CronFormats.IncludeSeconds, "Invalid cron expression.")]
+    [InlineData("0 zero 12 * * ?", CronFormats.IncludeSeconds, "Invalid cron expression.")]
+// Invalid use of '/'
+    [InlineData("0 0 12 */* * ?", CronFormats.IncludeSeconds, "Invalid cron expression.")]
+    [InlineData("0 0 12 *//* ?", CronFormats.IncludeSeconds, "Invalid number of fields in cron expression. Expected 6, got 5.")]
+// Invalid use of ','
+    [InlineData("0 0 12 * *, ?", CronFormats.IncludeSeconds, "Invalid cron expression.")]
+    [InlineData("0 0 12 * ,*", CronFormats.IncludeSeconds, "Invalid number of fields in cron expression. Expected 6, got 5.")]
+// Invalid wildcard usage
+    [InlineData("0 0 12 ** * ?", CronFormats.IncludeSeconds, "Invalid cron expression.")]
+    [InlineData("0 0 12 * **", CronFormats.IncludeSeconds, "Invalid number of fields in cron expression. Expected 6, got 5.")]
+    public void ValidateExpression_Should_Throw_For_Invalid_Expressions(string expression, CronFormats formats,
+        string expectedMessage)
+    {
+        // Act
+        Action act = () => new CronTab(expression, formats);
+
+        // Assert
+        act.Should().Throw<ArgumentException>()
+            .WithMessage(expectedMessage);
     }
 }
