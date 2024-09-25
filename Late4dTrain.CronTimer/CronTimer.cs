@@ -12,10 +12,10 @@ namespace Late4dTrain.CronTimer
 {
     public sealed class CronTimer : ICronTimer, ICronTimerAsync, IDisposable
     {
-        private readonly CronOption _cronOption = new CronOption();
+        private readonly CronOption _cronOption = new();
         private readonly ITimeProvider _timeProvider;
         private readonly IDelayProvider _delayProvider;
-        private readonly object _stateLock = new object();
+        private readonly object _stateLock = new();
         private readonly int _executionTimeout;
 
         private bool _isRunning;
@@ -198,7 +198,7 @@ namespace Late4dTrain.CronTimer
         private CronNextOccasion GetNextOccasion()
         {
             DateTime? nextUtc = null;
-            Guid cronId = Guid.Empty;
+            var cronId = Guid.Empty;
             string cronExpression = null;
 
             foreach (var expression in _expressions)

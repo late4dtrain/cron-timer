@@ -20,9 +20,9 @@ namespace Late4dTrain.CronTimer.Parser
 
         public static CronExpression Parse(string expression, CronFormats formats)
         {
-            string[] parts = expression.Split(' ');
+            var parts = expression.Split(' ');
 
-            int expectedFieldCount = formats == CronFormats.IncludeSeconds ? 6 : 5;
+            var expectedFieldCount = formats == CronFormats.IncludeSeconds ? 6 : 5;
 
             if (parts.Length != expectedFieldCount)
                 throw new ArgumentException(
@@ -30,7 +30,7 @@ namespace Late4dTrain.CronTimer.Parser
 
             var cron = new CronExpression();
 
-            int index = 0;
+            var index = 0;
 
             if (formats == CronFormats.IncludeSeconds)
             {
@@ -90,11 +90,11 @@ namespace Late4dTrain.CronTimer.Parser
                 throw new ArgumentException($"Invalid step value in cron field '{fieldName}': {part}");
 
             var rangePart = stepParts[0];
-            if (!int.TryParse(stepParts[1], out int step) || step <= 0)
+            if (!int.TryParse(stepParts[1], out var step) || step <= 0)
                 throw new ArgumentException($"Invalid step value in cron field '{fieldName}': {part}");
 
-            int rangeStart = minValue;
-            int rangeEnd = maxValue;
+            var rangeStart = minValue;
+            var rangeEnd = maxValue;
 
             if (!string.IsNullOrEmpty(rangePart) && rangePart != "*")
             {
@@ -110,7 +110,7 @@ namespace Late4dTrain.CronTimer.Parser
                 }
             }
 
-            for (int i = rangeStart; i <= rangeEnd; i += step)
+            for (var i = rangeStart; i <= rangeEnd; i += step)
             {
                 if (i >= minValue && i <= maxValue)
                     values.Add(i);
@@ -143,10 +143,10 @@ namespace Late4dTrain.CronTimer.Parser
         private static void ParseRange(string part, int minValue, int maxValue, SortedSet<int> values, string fieldName,
             bool monthNames, bool dayOfWeekNames)
         {
-            ParseRangeBounds(part, minValue, maxValue, fieldName, monthNames, dayOfWeekNames, out int rangeStart,
-                out int rangeEnd);
+            ParseRangeBounds(part, minValue, maxValue, fieldName, monthNames, dayOfWeekNames, out var rangeStart,
+                out var rangeEnd);
 
-            for (int i = rangeStart; i <= rangeEnd; i++)
+            for (var i = rangeStart; i <= rangeEnd; i++)
             {
                 values.Add(i);
             }
@@ -155,7 +155,7 @@ namespace Late4dTrain.CronTimer.Parser
         private static void ParseValue(string part, int minValue, int maxValue, SortedSet<int> values, string fieldName,
             bool monthNames, bool dayOfWeekNames)
         {
-            int val = ParseSingleValue(part, minValue, maxValue, fieldName, monthNames, dayOfWeekNames);
+            var val = ParseSingleValue(part, minValue, maxValue, fieldName, monthNames, dayOfWeekNames);
             values.Add(val);
         }
 
@@ -190,7 +190,7 @@ namespace Late4dTrain.CronTimer.Parser
             month = 0;
             var monthNames = System.Globalization.CultureInfo.InvariantCulture.DateTimeFormat.AbbreviatedMonthNames;
 
-            for (int i = 0; i < monthNames.Length - 1; i++)
+            for (var i = 0; i < monthNames.Length - 1; i++)
             {
                 if (monthNames[i].Equals(value, StringComparison.OrdinalIgnoreCase))
                 {
@@ -207,7 +207,7 @@ namespace Late4dTrain.CronTimer.Parser
             dayOfWeek = 0;
             var dayNames = System.Globalization.CultureInfo.InvariantCulture.DateTimeFormat.AbbreviatedDayNames;
 
-            for (int i = 0; i < dayNames.Length; i++)
+            for (var i = 0; i < dayNames.Length; i++)
             {
                 if (dayNames[i].Equals(value, StringComparison.OrdinalIgnoreCase))
                 {
@@ -238,7 +238,7 @@ namespace Late4dTrain.CronTimer.Parser
                 else if (field.StartsWith("L-"))
                 {
                     // e.g., 'L-3' for third to last day of the month
-                    if (int.TryParse(field.Substring(2), out int offset) && offset >= 0)
+                    if (int.TryParse(field.Substring(2), out var offset) && offset >= 0)
                     {
                         values.Add(-offset); // Use negative numbers to represent 'L-offset'
                     }
@@ -256,7 +256,7 @@ namespace Late4dTrain.CronTimer.Parser
             {
                 // Handle 'W' operator for nearest weekday
                 cron.HasDayOfMonthSpecialCharacters = true;
-                if (int.TryParse(field.TrimEnd('W'), out int day))
+                if (int.TryParse(field.TrimEnd('W'), out var day))
                 {
                     if (day >= 1 && day <= 31)
                     {
@@ -300,7 +300,7 @@ namespace Late4dTrain.CronTimer.Parser
                 {
                     values.Add(-1); // Use -1 as a marker for 'L' in day of week
                 }
-                else if (int.TryParse(field.TrimEnd('L'), out int dayOfWeek) && dayOfWeek >= 0 && dayOfWeek <= 6)
+                else if (int.TryParse(field.TrimEnd('L'), out var dayOfWeek) && dayOfWeek >= 0 && dayOfWeek <= 6)
                 {
                     values.Add(-dayOfWeek); // Use negative numbers to represent 'dayOfWeekL'
                 }
@@ -325,7 +325,7 @@ namespace Late4dTrain.CronTimer.Parser
             Justification = "Method is used for parsing cron expressions.")]
         public DateTime? GetNextOccurrence(DateTime baseTime)
         {
-            DateTime next = baseTime;
+            var next = baseTime;
 
             if (Seconds != null && Seconds.Count > 0 && !(Seconds.Count == 1 && Seconds.Contains(0)))
             {
@@ -337,13 +337,13 @@ namespace Late4dTrain.CronTimer.Parser
                 next = new DateTime(next.Year, next.Month, next.Day, next.Hour, next.Minute, 0, next.Kind);
             }
 
-            for (int i = 0; i < 100000; i++) // Safety limit to prevent infinite loops
+            for (var i = 0; i < 100000; i++) // Safety limit to prevent infinite loops
             {
                 if (!Month.Contains(next.Month))
                 {
                     // Move to the next valid month
-                    int nextMonth = GetNextValue(Month, next.Month);
-                    int yearsToAdd = nextMonth <= next.Month ? 1 : 0;
+                    var nextMonth = GetNextValue(Month, next.Month);
+                    var yearsToAdd = nextMonth <= next.Month ? 1 : 0;
                     next = new DateTime(next.Year + yearsToAdd, nextMonth, 1, 0, 0, 0, next.Kind);
                     continue;
                 }
@@ -387,7 +387,7 @@ namespace Late4dTrain.CronTimer.Parser
                 if (!Hours.Contains(next.Hour))
                 {
                     // Move to the next valid hour
-                    int nextHour = GetNextValue(Hours, next.Hour);
+                    var nextHour = GetNextValue(Hours, next.Hour);
                     if (nextHour <= next.Hour)
                     {
                         next = next.AddDays(1);
@@ -400,7 +400,7 @@ namespace Late4dTrain.CronTimer.Parser
                 if (!Minutes.Contains(next.Minute))
                 {
                     // Move to the next valid minute
-                    int nextMinute = GetNextValue(Minutes, next.Minute);
+                    var nextMinute = GetNextValue(Minutes, next.Minute);
                     if (nextMinute <= next.Minute)
                     {
                         next = next.AddHours(1);
@@ -417,7 +417,7 @@ namespace Late4dTrain.CronTimer.Parser
                     if (!Seconds.Contains(next.Second))
                     {
                         // Move to the next valid second
-                        int nextSecond = GetNextValue(Seconds, next.Second);
+                        var nextSecond = GetNextValue(Seconds, next.Second);
                         if (nextSecond <= next.Second)
                         {
                             next = next.AddMinutes(1);
@@ -450,14 +450,14 @@ namespace Late4dTrain.CronTimer.Parser
             {
                 if (value == -1)
                 {
-                    int lastDay = DateTime.DaysInMonth(date.Year, date.Month);
+                    var lastDay = DateTime.DaysInMonth(date.Year, date.Month);
                     if (date.Day == lastDay)
                         return true;
                 }
                 else if (value < 0)
                 {
-                    int offset = -value;
-                    int lastDay = DateTime.DaysInMonth(date.Year, date.Month);
+                    var offset = -value;
+                    var lastDay = DateTime.DaysInMonth(date.Year, date.Month);
                     if (date.Day == lastDay - offset)
                         return true;
                 }
@@ -484,7 +484,7 @@ namespace Late4dTrain.CronTimer.Parser
                 }
                 else if (value < 0)
                 {
-                    int dayOfWeek = -value;
+                    var dayOfWeek = -value;
                     // Last occurrence of the dayOfWeek in the month
                     if (IsLastDayOfWeekInMonth(date, dayOfWeek))
                         return true;
@@ -504,7 +504,7 @@ namespace Late4dTrain.CronTimer.Parser
             if ((int)date.DayOfWeek != dayOfWeek)
                 return false;
 
-            DateTime nextWeekSameDay = date.AddDays(7);
+            var nextWeekSameDay = date.AddDays(7);
             return nextWeekSameDay.Month != date.Month;
         }
 
