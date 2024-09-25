@@ -1,6 +1,6 @@
 ﻿namespace Late4dTrain.CronTimer.Parser
 {
-    public class CronTabExpressionData
+    public class CronTabExpressionFieldData
     {
         public string Start { get; set; } = string.Empty;
         public string End { get; set; } = string.Empty;

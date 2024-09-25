@@ -5,7 +5,7 @@ namespace Late4dTrain.CronTimer.Parser
     public class CronTabExpressionField
     {
         private readonly string _rawExpression;
-        public List<CronTabExpressionData> Data { get; private set; } = new();
+        public List<CronTabExpressionFieldData> Data { get; private set; } = new();
 
         public CronTabExpressionField(string expression)
         {
@@ -56,7 +56,7 @@ namespace Late4dTrain.CronTimer.Parser
                     endRange = rangeSplit[1];
                 }
 
-                Data.Add(new CronTabExpressionData
+                Data.Add(new CronTabExpressionFieldData
                 {
                     Start = dataPart,
                     End = endRange,

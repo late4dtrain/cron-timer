@@ -73,6 +73,16 @@ namespace Late4dTrain.CronTimer.Parser
             fields[fieldIndex].ValidateDayOfWeekField();
         }
 
+        public static void ValidateCronTabExpression(this CronTabExpression expression)
+        {
+            expression.Seconds.ValidateField(0, 59, "seconds");
+            expression.Minutes.ValidateField(0, 59, "minutes");
+            expression.Hours.ValidateField(0, 23, "hours");
+            expression.Days.ValidateField(1, 31, "day-of-month");
+            expression.Months.ValidateField(1, 12, "month");
+            expression.DaysOfWeek.ValidateField(0, 6, "day-of-week");
+        }
+
         public static void ValidateField(this string field, int minValue, int maxValue, string fieldName)
         {
             if (string.IsNullOrWhiteSpace(field))
@@ -131,6 +141,17 @@ namespace Late4dTrain.CronTimer.Parser
                         throw new ArgumentException($"Invalid {fieldName} field format.");
                 }
             }
+        }
+
+        public static void ValidateField(this CronTabExpressionField field, int minValue, int maxValue, string fieldName)
+        {
+
+            field.Data.ForEach(data =>
+            {
+                data.Start.ValidateRangeOrValue(minValue, maxValue, fieldName);
+                data.End.ValidateRangeOrValue(minValue, maxValue, fieldName);
+                data.Step.ValidateRangeOrValue(minValue, maxValue, fieldName);
+            });
         }
 
         public static void ValidateRangeOrValue(this string part, int minValue, int maxValue, string fieldName)
