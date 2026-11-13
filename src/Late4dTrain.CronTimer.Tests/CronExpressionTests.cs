@@ -146,6 +146,139 @@ namespace Late4dTrain.CronTimer.Tests
         }
 
         [Theory]
+        [InlineData("0 0 15W * *", "2023-04-01T00:00:00Z", "2023-04-14T00:00:00Z")]
+        [InlineData("0 0 1W * *", "2023-04-01T00:00:00Z", "2023-04-03T00:00:00Z")]
+        [InlineData("0 0 31W * *", "2023-03-01T00:00:00Z", "2023-03-31T00:00:00Z")]
+        public void GetNextOccurrence_Should_Handle_Nearest_Weekday(string expression, DateTimeOffset baseTime,
+            DateTimeOffset expected)
+        {
+            var cron = CronExpression.Parse(expression, CronFormats.Standard);
+            cron.GetNextOccurrence(baseTime.UtcDateTime).Should().Be(expected.UtcDateTime);
+        }
+
+        [Theory]
+        [InlineData("0 0 L * *", "2023-01-01T00:00:00Z", "2023-01-31T00:00:00Z")]
+        [InlineData("0 0 L-0 * *", "2023-01-01T00:00:00Z", "2023-01-31T00:00:00Z")]
+        [InlineData("0 0 L-1 * *", "2023-01-01T00:00:00Z", "2023-01-30T00:00:00Z")]
+        [InlineData("0 0 L-2 * *", "2023-02-01T00:00:00Z", "2023-02-26T00:00:00Z")]
+        [InlineData("0 0 * * 0L", "2023-01-02T00:00:00Z", "2023-01-29T00:00:00Z")]
+        [InlineData("0 0 * * 1L", "2023-01-02T00:00:00Z", "2023-01-30T00:00:00Z")]
+        [InlineData("0 0 * * 2L", "2023-01-02T00:00:00Z", "2023-01-31T00:00:00Z")]
+        [InlineData("0 0 * * 3L", "2023-01-02T00:00:00Z", "2023-01-25T00:00:00Z")]
+        [InlineData("0 0 * * 4L", "2023-01-02T00:00:00Z", "2023-01-26T00:00:00Z")]
+        [InlineData("0 0 * * 5L", "2023-01-02T00:00:00Z", "2023-01-27T00:00:00Z")]
+        [InlineData("0 0 * * 6L", "2023-01-02T00:00:00Z", "2023-01-28T00:00:00Z")]
+        [InlineData("0 0 * * L", "2023-01-02T00:00:00Z", "2023-01-07T00:00:00Z")]
+        [InlineData("0 0 L 2 *", "2024-02-01T00:00:00Z", "2024-02-29T00:00:00Z")]
+        public void GetNextOccurrence_Should_Handle_Last_Day_Operators(string expression, DateTimeOffset baseTime,
+            DateTimeOffset expected)
+        {
+            var cron = CronExpression.Parse(expression, CronFormats.Standard);
+            cron.GetNextOccurrence(baseTime.UtcDateTime).Should().Be(expected.UtcDateTime);
+        }
+
+        [Theory]
+        [InlineData("* * * * * *", "2023-10-01T00:00:00.500Z", "2023-10-01T00:00:01Z")]
+        [InlineData("0 * * * * *", "2023-10-01T00:00:00.500Z", "2023-10-01T00:01:00Z")]
+        [InlineData("* * * * *", "2023-10-01T00:00:00Z", "2023-10-01T00:01:00Z")]
+        [InlineData("0 0 * * *", "2023-10-01T23:59:59Z", "2023-10-02T00:00:00Z")]
+        [InlineData("0 0 1 JAN *", "2023-01-01T00:00:00Z", "2024-01-01T00:00:00Z")]
+        public void GetNextOccurrence_Should_Return_Strictly_Future_Boundary(string expression,
+            DateTimeOffset baseTime, DateTimeOffset expected)
+        {
+            var format = expression.Split(' ').Length == 6 ? CronFormats.IncludeSeconds : CronFormats.Standard;
+            var cron = CronExpression.Parse(expression, format);
+            cron.GetNextOccurrence(baseTime.UtcDateTime).Should().Be(expected.UtcDateTime);
+        }
+
+        [Fact]
+        public void GetNextOccurrence_Should_Return_Null_When_No_Date_Can_Match()
+        {
+            var cron = CronExpression.Parse("0 0 31 2 *", CronFormats.Standard);
+            cron.GetNextOccurrence(new DateTime(2023, 1, 1, 0, 0, 0, DateTimeKind.Utc)).Should().BeNull();
+        }
+
+        [Fact]
+        public void GetNextOccurrence_Should_Not_Move_Nearest_Weekday_Outside_Short_Month()
+        {
+            var cron = CronExpression.Parse("0 0 31W 2 *", CronFormats.Standard);
+            cron.GetNextOccurrence(new DateTime(2023, 1, 1, 0, 0, 0, DateTimeKind.Utc)).Should().BeNull();
+        }
+
+        [Fact]
+        public void GetNextOccurrence_Should_Return_Null_At_DateTime_MaxValue()
+        {
+            var cron = CronExpression.Parse("* * * * * *", CronFormats.IncludeSeconds);
+            cron.GetNextOccurrence(DateTime.MaxValue).Should().BeNull();
+        }
+
+        [Fact]
+        public void Parse_Should_Normalize_Whitespace_Names_And_Single_Start_Steps()
+        {
+            var cron = CronExpression.Parse("  */15   5/10 * jAn,mAr *  ", CronFormats.Standard);
+            cron.Minutes.Should().BeEquivalentTo(new[] { 0, 15, 30, 45 });
+            cron.Hours.Should().BeEquivalentTo(new[] { 5, 15 });
+            cron.Month.Should().BeEquivalentTo(new[] { 1, 3 });
+        }
+
+        [Fact]
+        public void Parse_Should_Support_Named_Ranges_And_Deduplicate_Lists()
+        {
+            var cron = CronExpression.Parse("0 0 * JAN-MAR MON-FRI", CronFormats.Standard);
+            cron.Month.Should().BeEquivalentTo(new[] { 1, 2, 3 });
+            cron.DayOfWeek.Should().BeEquivalentTo(new[] { 1, 2, 3, 4, 5 });
+
+            var duplicated = CronExpression.Parse("0,0,30 0 * * * *", CronFormats.IncludeSeconds);
+            duplicated.Seconds.Should().BeEquivalentTo(new[] { 0, 30 });
+        }
+
+        [Fact]
+        public void GetNextOccurrence_Should_Keep_Day_Of_Month_And_Day_Of_Week_Conjunctive()
+        {
+            var cron = CronExpression.Parse("0 0 1 * MON", CronFormats.Standard);
+            cron.GetNextOccurrence(new DateTime(2023, 1, 1, 0, 0, 0, DateTimeKind.Utc))
+                .Should().Be(new DateTime(2023, 5, 1, 0, 0, 0, DateTimeKind.Utc));
+        }
+
+        [Theory]
+        [InlineData("")]
+        [InlineData("* * * *")]
+        [InlineData("* * * * * *")]
+        [InlineData("61 * * * *")]
+        [InlineData("* * * * * 7")]
+        [InlineData("* * * * * */0")]
+        [InlineData("* * * * 12-1")]
+        [InlineData("* * * * 1,,2")]
+        [InlineData("* * * * 1--3")]
+        [InlineData("* * * * */1/2")]
+        [InlineData("* * L-foo * *")]
+        [InlineData("* * * * fooL")]
+        [InlineData("* * * * JANUARY *")]
+        [InlineData("* * * * * 7L")]
+        [InlineData("* * * * 32W *")]
+        public void Parse_Should_Reject_Invalid_Expressions(string expression)
+        {
+            Action act = () => CronExpression.Parse(expression, CronFormats.Standard);
+            act.Should().Throw<ArgumentException>();
+        }
+
+        [Fact]
+        public void Parse_Should_Report_Nth_Weekday_As_Not_Implemented()
+        {
+            Action act = () => CronExpression.Parse("0 0 * * 2#3", CronFormats.Standard);
+            act.Should().Throw<NotImplementedException>();
+        }
+
+        [Fact]
+        public void Parse_Should_Reject_Null_Expression_And_Unsupported_Format()
+        {
+            Action nullExpression = () => CronExpression.Parse(null!, CronFormats.Standard);
+            Action unsupportedFormat = () => CronExpression.Parse("* * * * *", CronFormats.None);
+            nullExpression.Should().Throw<ArgumentNullException>();
+            unsupportedFormat.Should().Throw<ArgumentOutOfRangeException>();
+        }
+
+        [Theory]
         [InlineData("* * * * * *", CronFormats.Standard)] // Incorrect number of fields
         [InlineData("* * * * * * * *", CronFormats.IncludeSeconds)] // Too many fields
         [InlineData("*/0 * * * * *", CronFormats.IncludeSeconds)] // Invalid step value

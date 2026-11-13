@@ -22,4 +22,13 @@ jobs:
       - name: Build
         run: dotnet build
       - name: Test
-        run: dotnet test --no-restore --verbosity normal
+        run: dotnet test --no-build --no-restore --verbosity normal --collect "XPlat Code Coverage" --results-directory TestResults --logger trx
+      - name: Upload test and coverage results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-and-coverage-results
+          path: |
+            TestResults/**/coverage.cobertura.xml
+            TestResults/**/*.trx
+          if-no-files-found: warn

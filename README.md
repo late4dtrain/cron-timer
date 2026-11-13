@@ -29,13 +29,14 @@ using System.Threading;
 using System.Threading.Tasks;
 using Late4dTrain.CronTimer;
 using Late4dTrain.CronTimer.Events;
+using Late4dTrain.CronTimer.Parser;
 
 class Program
 {
     static async Task Main(string[] args)
     {
         var timer = new CronTimer("*/1 * * * * *", CronFormats.IncludeSeconds);
-        timer.TriggeredEventHandler += async (s, e) => await HandleCronTimer(e);
+        timer.TriggeredAsyncEventHandler += async (s, e) => await HandleCronTimer(e);
         timer.Start();
 
         // Let the timer run for 7 seconds
@@ -69,6 +70,9 @@ To use `CronTimer` with dependency injection and logging, follow these steps:
     ```csharp
     using Microsoft.Extensions.DependencyInjection;
     using Microsoft.Extensions.Logging;
+    using Late4dTrain.CronTimer;
+    using Late4dTrain.CronTimer.Parser;
+    using Late4dTrain.CronTimer.Providers;
 
     public class Startup
     {
@@ -88,7 +92,9 @@ To use `CronTimer` with dependency injection and logging, follow these steps:
                 return new CronTimer(options =>
                 {
                     options.AddCronTabs(new CronTab("*/5 * * * * *", CronFormats.IncludeSeconds));
-                }, timeProvider, delayProvider, logger);
+                }, timeProvider, delayProvider,
+                    errorLogger: (message, error) => logger.LogError(error, "{Message}", message),
+                    infoLogger: message => logger.LogInformation("{Message}", message));
             });
         }
     }
@@ -102,6 +108,10 @@ To use `CronTimer` with dependency injection and logging, follow these steps:
     using System.Threading.Tasks;
     using Microsoft.Extensions.DependencyInjection;
     using Microsoft.Extensions.Logging;
+    using Late4dTrain.CronTimer;
+    using Late4dTrain.CronTimer.Events;
+    using Late4dTrain.CronTimer.Parser;
+    using Late4dTrain.CronTimer.Providers;
 
     class Program
     {
@@ -120,12 +130,14 @@ To use `CronTimer` with dependency injection and logging, follow these steps:
                     return new CronTimer(options =>
                     {
                         options.AddCronTabs(new CronTab("*/5 * * * * *", CronFormats.IncludeSeconds));
-                    }, timeProvider, delayProvider, logger);
+                    }, timeProvider, delayProvider,
+                        errorLogger: (message, error) => logger.LogError(error, "{Message}", message),
+                        infoLogger: message => logger.LogInformation("{Message}", message));
                 })
                 .BuildServiceProvider();
 
             var timer = serviceProvider.GetRequiredService<CronTimer>();
-            timer.TriggeredEventHandler += async (s, e) => await HandleCronTimer(e);
+            timer.TriggeredAsyncEventHandler += async (s, e) => await HandleCronTimer(e);
             timer.Start();
 
             // Let the timer run for 7 seconds
@@ -142,6 +154,14 @@ To use `CronTimer` with dependency injection and logging, follow these steps:
         }
     }
     ```
+
+## Scheduling and callback behavior
+
+- `TriggeredAsyncEventHandler` is awaitable. Its subscribers run one at a time in registration order; an async subscriber must return its `Task` for the timer to track completion and exceptions. `TriggeredEventHandler` remains available for synchronous callbacks.
+- `Start()` starts in the background. `StartAsync(token)` returns a task for the worker's lifetime. `Stop()` requests cooperative cancellation; `StopAsync(token)` requests cancellation and awaits worker completion. A canceled stop-wait does not stop waiting work or dispose resources still in use.
+- `executionTimeout` cancels the callback token; it does not forcibly terminate code that ignores cancellation. A callback that ignores the token remains awaited, so later occurrences do not overlap it. Use the event's `CancellationToken` in long-running work.
+- Cron times are evaluated by `ITimeProvider.UtcNow`. Day-of-month and day-of-week constraints are combined with AND semantics; numeric weekdays use `0` for Sunday through `6` for Saturday. `L` means the month's last day in the day-of-month field; `L-n` means an offset from it; `nW` selects the nearest weekday without crossing the month; `nL` selects that month's last such weekday. A standalone day-of-week `L` matches Saturday. The `#` operator is not implemented.
+- If multiple configured schedules have the same next timestamp, each fires once in configuration order. Missed intervals are not replayed after a callback runs late.
 
 ## License
 
