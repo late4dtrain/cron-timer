@@ -1,52 +1,46 @@
-name: release-to-nuget-on-release
+name: Release to Nuget
 
 on:
-  release:
-    types: [published]
-
-permissions:
-  contents: read
+    release:
+        types: [ published ]
 
 jobs:
-  publish:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
+    build:
+        runs-on: ubuntu-latest
+        permissions:
+            contents: read
+            id-token: write
 
-      - name: Set up .NET
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: 8.0.x
-
-      - name: Restore dependencies
-        run: dotnet restore
-
-      - name: Build
-        run: dotnet build --no-restore
-
-      - name: Test
-        run: dotnet test --no-build --verbosity normal
-
-      - name: Pack NuGet package
-        env:
-          RELEASE_TAG: ${{ github.event.release.tag_name }}
-          RELEASE_NOTES: ${{ github.event.release.body }}
-        run: |
-          version="${RELEASE_TAG#v}"
-          dotnet pack src/Late4dTrain.CronTimer/Late4dTrain.CronTimer.csproj \
-            --configuration Release \
-            --no-restore \
-            --output artifacts \
-            -p:Version="$version" \
-            -p:PackageReleaseNotes="$RELEASE_NOTES"
-
-      - name: Archive NuGet package
-        uses: actions/upload-artifact@v4
-        with:
-          name: nuget-package
-          path: artifacts/*.nupkg
-
-      - name: Publish NuGet package
-        env:
-          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
-        run: dotnet nuget push artifacts/*.nupkg --api-key "$NUGET_API_KEY" --source https://api.nuget.org/v3/index.json --skip-duplicate
+        steps:
+            -   uses: actions/checkout@v4
+            -   name: Normalize package version
+                id: version
+                env:
+                    RELEASE_TAG: ${{ github.event.release.tag_name }}
+                run: echo "package_version=${RELEASE_TAG#v}" >> "$GITHUB_OUTPUT"
+            -   name: Setup .NET
+                uses: actions/setup-dotnet@v4
+                with:
+                    dotnet-version: 10.0.x
+            -   name: Restore dependencies
+                run: dotnet restore
+            -   name: Build
+                run: dotnet build --no-restore
+            -   name: Test
+                run: dotnet test --no-build --verbosity normal
+            -   name: Create NuGet package
+                env:
+                    RELEASE_TAG: ${{ github.event.release.tag_name }}
+                run: dotnet pack src/Late4dTrain.CronTimer/Late4dTrain.CronTimer.csproj -c Release --no-restore /p:Version=${{ steps.version.outputs.package_version }} /p:PackageReleaseNotes="See https://github.com/late4dtrain/cron-timer/releases/tag/${RELEASE_TAG}"
+            -   name: Archive NuGet package
+                uses: actions/upload-artifact@v4
+                with:
+                    name: NuGet package
+                    path: ./src/Late4dTrain.CronTimer/bin/Release/Late4dTrain.CronTimer.${{ steps.version.outputs.package_version }}.nupkg
+            -   name: NuGet trusted publishing login
+                id: nuget-login
+                uses: NuGet/login@v1
+                with:
+                    user: gsoulavy
+            -   name: Push runtime package
+                run: dotnet nuget push ./src/Late4dTrain.CronTimer/bin/Release/Late4dTrain.CronTimer.${{ steps.version.outputs.package_version }}.nupkg --api-key "${{ steps.nuget-login.outputs.NUGET_API_KEY }}" --source https://api.nuget.org/v3/index.json
